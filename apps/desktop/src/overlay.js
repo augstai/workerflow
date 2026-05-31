@@ -22,6 +22,11 @@ const hotkeyInput = document.getElementById("hotkey");
 const hotkeyModeSelect = document.getElementById("hotkeyMode");
 const providerSelect = document.getElementById("provider");
 const modelInput = document.getElementById("model");
+const endpointLabel = document.getElementById("endpointLabel");
+const endpointInput = document.getElementById("endpoint");
+const deploymentLabel = document.getElementById("deploymentLabel");
+const deploymentInput = document.getElementById("deployment");
+const keyEnvInput = document.getElementById("keyEnv");
 const reviewButton = document.getElementById("review");
 const runButton = document.getElementById("run");
 const stopButton = document.getElementById("stop");
@@ -128,20 +133,34 @@ hotkeyModeSelect.addEventListener("change", async () => {
 });
 
 providerSelect.addEventListener("change", async () => {
+  const nextProvider = providerSelect.value;
   settings = await window.workerflow.updateSettings({
-    transcription: {
-      provider: providerSelect.value
-    }
+    transcription: defaultProviderPatch(nextProvider)
   });
   renderAll();
 });
 
 modelInput.addEventListener("change", async () => {
+  settings = await window.workerflow.updateSettings({ transcription: modelPatch(modelInput.value.trim()) });
+  renderAll();
+});
+
+endpointInput.addEventListener("change", async () => {
+  settings = await window.workerflow.updateSettings({ transcription: endpointPatch(endpointInput.value.trim()) });
+  renderAll();
+});
+
+deploymentInput.addEventListener("change", async () => {
   settings = await window.workerflow.updateSettings({
     transcription: {
-      model: modelInput.value.trim()
+      azureDeployment: deploymentInput.value.trim()
     }
   });
+  renderAll();
+});
+
+keyEnvInput.addEventListener("change", async () => {
+  settings = await window.workerflow.updateSettings({ transcription: keyEnvPatch(keyEnvInput.value.trim()) });
   renderAll();
 });
 
@@ -245,7 +264,13 @@ function renderAll() {
   hotkeyInput.value = settings.hotkey ?? "Alt+Space";
   hotkeyModeSelect.value = settings.hotkeyMode ?? "toggle";
   providerSelect.value = settings.transcription?.provider ?? "mock";
-  modelInput.value = settings.transcription?.model ?? settings.transcription?.elevenLabsModel ?? "";
+  modelInput.value = providerModelValue();
+  endpointInput.value = providerEndpointValue();
+  deploymentInput.value = settings.transcription?.azureDeployment ?? "";
+  keyEnvInput.value = providerKeyEnvValue();
+  endpointLabel.textContent = providerSelect.value === "azure-openai" ? "Azure endpoint" : "Endpoint";
+  deploymentLabel.textContent = providerSelect.value === "azure-openai" ? "Deployment" : "Deployment";
+  deploymentInput.disabled = providerSelect.value !== "azure-openai";
 }
 
 function renderMeta() {
@@ -267,4 +292,84 @@ function statusToView(value) {
   if (["running", "preparing", "queued", "verifying"].includes(value)) return "running";
   if (["failed", "needs-attention"].includes(value)) return "failed";
   return "ready";
+}
+
+function defaultProviderPatch(provider) {
+  const base = {
+    provider
+  };
+  if (provider === "openai") {
+    return {
+      ...base,
+      model: "gpt-4o-mini-transcribe",
+      baseUrl: "https://api.openai.com/v1",
+      apiKeyEnv: "OPENAI_API_KEY"
+    };
+  }
+  if (provider === "azure-openai") {
+    return {
+      ...base,
+      azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
+      azureApiVersion: "2024-02-01"
+    };
+  }
+  if (provider === "elevenlabs") {
+    return {
+      ...base,
+      elevenLabsApiKeyEnv: "ELEVENLABS_API_KEY",
+      elevenLabsModel: "scribe_v2"
+    };
+  }
+  return base;
+}
+
+function modelPatch(value) {
+  if (providerSelect.value === "elevenlabs") {
+    return { elevenLabsModel: value || "scribe_v2" };
+  }
+  return { model: value || "gpt-4o-mini-transcribe" };
+}
+
+function endpointPatch(value) {
+  if (providerSelect.value === "azure-openai") {
+    return { azureEndpoint: value };
+  }
+  return { baseUrl: value || "https://api.openai.com/v1" };
+}
+
+function keyEnvPatch(value) {
+  if (providerSelect.value === "azure-openai") {
+    return { azureApiKeyEnv: value || "AZURE_OPENAI_API_KEY" };
+  }
+  if (providerSelect.value === "elevenlabs") {
+    return { elevenLabsApiKeyEnv: value || "ELEVENLABS_API_KEY" };
+  }
+  return { apiKeyEnv: value || "OPENAI_API_KEY" };
+}
+
+function providerModelValue() {
+  if (providerSelect.value === "elevenlabs") {
+    return settings.transcription?.elevenLabsModel ?? "scribe_v2";
+  }
+  return settings.transcription?.model ?? "gpt-4o-mini-transcribe";
+}
+
+function providerEndpointValue() {
+  if (providerSelect.value === "azure-openai") {
+    return settings.transcription?.azureEndpoint ?? "";
+  }
+  if (providerSelect.value === "elevenlabs") {
+    return "https://api.elevenlabs.io";
+  }
+  return settings.transcription?.baseUrl ?? "https://api.openai.com/v1";
+}
+
+function providerKeyEnvValue() {
+  if (providerSelect.value === "azure-openai") {
+    return settings.transcription?.azureApiKeyEnv ?? "AZURE_OPENAI_API_KEY";
+  }
+  if (providerSelect.value === "elevenlabs") {
+    return settings.transcription?.elevenLabsApiKeyEnv ?? "ELEVENLABS_API_KEY";
+  }
+  return settings.transcription?.apiKeyEnv ?? "OPENAI_API_KEY";
 }

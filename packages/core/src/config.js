@@ -13,7 +13,15 @@ export const DEFAULT_CONFIG = Object.freeze({
   },
   transcription: {
     provider: "mock",
-    model: "gpt-4o-mini-transcribe"
+    model: "gpt-4o-mini-transcribe",
+    apiKeyEnv: "OPENAI_API_KEY",
+    baseUrl: "https://api.openai.com/v1",
+    azureEndpoint: "",
+    azureDeployment: "",
+    azureApiVersion: "2024-02-01",
+    azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
+    elevenLabsApiKeyEnv: "ELEVENLABS_API_KEY",
+    elevenLabsModel: "scribe_v2"
   },
   adapters: {
     codex: {

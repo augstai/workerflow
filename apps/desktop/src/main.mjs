@@ -363,7 +363,7 @@ function defaultSettings() {
       baseUrl: "https://api.openai.com/v1",
       azureEndpoint: "",
       azureDeployment: "",
-      azureApiVersion: "2024-06-01-preview",
+      azureApiVersion: "2024-02-01",
       azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
       elevenLabsApiKeyEnv: "ELEVENLABS_API_KEY",
       elevenLabsModel: "scribe_v2"

@@ -21,6 +21,14 @@ export async function transcribeAudioFile({ filePath, config, prompt }) {
     return transcribeWithOpenAICompatible({ filePath, config, prompt });
   }
 
+  if (provider === "azure-openai") {
+    return transcribeWithAzureOpenAI({ filePath, config, prompt });
+  }
+
+  if (provider === "elevenlabs") {
+    return transcribeWithElevenLabs({ filePath, config, prompt });
+  }
+
   throw new Error(`Unsupported transcription provider "${provider}"`);
 }
 
@@ -71,18 +79,118 @@ async function transcribeWithOpenAICompatible({ filePath, config, prompt }) {
     body: form
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readResponsePayload(response);
   if (!response.ok) {
     throw new Error(payload.error?.message ?? `Transcription failed with status ${response.status}`);
   }
 
-  const transcript = payload.text ?? "";
+  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
   return {
     provider: transcriptionConfig.provider,
     transcript,
     cleaned: cleanSpokenCommand(transcript),
     raw: payload
   };
+}
+
+async function transcribeWithAzureOpenAI({ filePath, config, prompt }) {
+  const transcriptionConfig = config.transcription ?? {};
+  const endpoint = transcriptionConfig.azureEndpoint?.replace(/\/$/, "");
+  const deployment = transcriptionConfig.azureDeployment;
+  const apiVersion = transcriptionConfig.azureApiVersion ?? "2024-02-01";
+  const apiKeyEnv = transcriptionConfig.azureApiKeyEnv ?? "AZURE_OPENAI_API_KEY";
+  const apiKey = process.env[apiKeyEnv];
+
+  if (!endpoint) {
+    throw new Error("Missing transcription.azureEndpoint");
+  }
+
+  if (!deployment) {
+    throw new Error("Missing transcription.azureDeployment");
+  }
+
+  if (!apiKey) {
+    throw new Error(`Missing ${apiKeyEnv} for Azure OpenAI transcription`);
+  }
+
+  const audio = new Blob([fs.readFileSync(filePath)], {
+    type: guessMimeType(filePath)
+  });
+  const form = new FormData();
+  form.append("file", audio, path.basename(filePath));
+  if (prompt) {
+    form.append("prompt", prompt);
+  }
+
+  const response = await fetch(
+    `${endpoint}/openai/deployments/${deployment}/audio/transcriptions?api-version=${apiVersion}`,
+    {
+      method: "POST",
+      headers: {
+        "api-key": apiKey
+      },
+      body: form
+    }
+  );
+
+  const payload = await readResponsePayload(response);
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Azure OpenAI transcription failed with status ${response.status}`);
+  }
+
+  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
+  return {
+    provider: transcriptionConfig.provider,
+    transcript,
+    cleaned: cleanSpokenCommand(transcript),
+    raw: payload
+  };
+}
+
+async function transcribeWithElevenLabs({ filePath, config }) {
+  const transcriptionConfig = config.transcription ?? {};
+  const apiKeyEnv = transcriptionConfig.elevenLabsApiKeyEnv ?? "ELEVENLABS_API_KEY";
+  const apiKey = process.env[apiKeyEnv];
+
+  if (!apiKey) {
+    throw new Error(`Missing ${apiKeyEnv} for ElevenLabs transcription`);
+  }
+
+  const audio = new Blob([fs.readFileSync(filePath)], {
+    type: guessMimeType(filePath)
+  });
+  const form = new FormData();
+  form.append("model_id", transcriptionConfig.elevenLabsModel ?? transcriptionConfig.model ?? "scribe_v2");
+  form.append("file", audio, path.basename(filePath));
+
+  const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey
+    },
+    body: form
+  });
+
+  const payload = await readResponsePayload(response);
+  if (!response.ok) {
+    throw new Error(payload.detail?.message ?? payload.error?.message ?? `ElevenLabs transcription failed with status ${response.status}`);
+  }
+
+  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
+  return {
+    provider: transcriptionConfig.provider,
+    transcript,
+    cleaned: cleanSpokenCommand(transcript),
+    raw: payload
+  };
+}
+
+async function readResponsePayload(response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return response.text();
 }
 
 function guessMimeType(filePath) {

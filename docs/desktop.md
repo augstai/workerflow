@@ -47,7 +47,9 @@ macOS must grant Accessibility permission to the terminal or packaged app that s
 
 ## Transcription Providers
 
-The desktop app can run with the mock provider while UI and job flow are being developed. For OpenAI-compatible transcription:
+The desktop app can run with the mock provider while UI and job flow are being developed. The provider can be changed in the app settings panel or by editing `~/.workerflow/settings.json`.
+
+OpenAI:
 
 ```json
 {
@@ -59,4 +61,28 @@ The desktop app can run with the mock provider while UI and job flow are being d
 }
 ```
 
-Azure and ElevenLabs providers are planned behind the same provider interface.
+Azure OpenAI:
+
+```json
+{
+  "transcription": {
+    "provider": "azure-openai",
+    "azureEndpoint": "https://YOUR_RESOURCE.openai.azure.com",
+    "azureDeployment": "YOUR_TRANSCRIPTION_DEPLOYMENT",
+    "azureApiVersion": "2024-02-01",
+    "azureApiKeyEnv": "AZURE_OPENAI_API_KEY"
+  }
+}
+```
+
+ElevenLabs:
+
+```json
+{
+  "transcription": {
+    "provider": "elevenlabs",
+    "elevenLabsModel": "scribe_v2",
+    "elevenLabsApiKeyEnv": "ELEVENLABS_API_KEY"
+  }
+}
+```

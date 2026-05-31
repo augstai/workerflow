@@ -59,6 +59,16 @@ macOS must grant Accessibility permission to the terminal or packaged app that s
 
 The desktop app can run with the mock provider while UI and job flow are being developed. The provider can be changed in the app settings panel or by editing `~/.workerflow/settings.json`.
 
+Secrets can live in a local env file. Workerflow loads `.env` from the directory where it is started, then `~/.workerflow/.env`; already-exported shell variables win over file values. For Azure OpenAI, copy `.env.example` and fill:
+
+```dotenv
+WORKERFLOW_TRANSCRIPTION_PROVIDER=azure-openai
+AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com
+AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT=YOUR_TRANSCRIPTION_DEPLOYMENT_NAME
+AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_KEY
+```
+
 OpenAI:
 
 ```json
@@ -79,7 +89,7 @@ Azure OpenAI:
     "provider": "azure-openai",
     "azureEndpoint": "https://YOUR_RESOURCE.openai.azure.com",
     "azureDeployment": "YOUR_TRANSCRIPTION_DEPLOYMENT",
-    "azureApiVersion": "2024-02-01",
+    "azureApiVersion": "2024-10-21",
     "azureApiKeyEnv": "AZURE_OPENAI_API_KEY"
   }
 }

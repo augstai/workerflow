@@ -310,7 +310,7 @@ function defaultProviderPatch(provider) {
     return {
       ...base,
       azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
-      azureApiVersion: "2024-02-01"
+      azureApiVersion: "2024-10-21"
     };
   }
   if (provider === "elevenlabs") {

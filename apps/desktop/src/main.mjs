@@ -19,6 +19,7 @@ import {
   classifyTask,
   captureRepoContext,
   DEFAULT_CONFIG,
+  loadEnvironment,
   runWorkerflowJob,
   transcribeAudioFile,
   workerflowHome
@@ -37,6 +38,7 @@ let keepOverlayVisibleUntil = 0;
 app.setName("Workerflow");
 
 app.whenReady().then(() => {
+  loadEnvironment({ cwd: process.cwd() });
   settings = readSettings();
   createTray();
   createOverlayWindow();
@@ -338,10 +340,11 @@ function createTrayIcon() {
 }
 
 function readSettings() {
+  const envSettings = settingsFromEnv();
   if (fs.existsSync(settingsPath)) {
-    return mergeSettings(defaultSettings(), JSON.parse(fs.readFileSync(settingsPath, "utf8")));
+    return mergeSettings(mergeSettings(defaultSettings(), JSON.parse(fs.readFileSync(settingsPath, "utf8"))), envSettings);
   }
-  return writeSettings(defaultSettings());
+  return writeSettings(mergeSettings(defaultSettings(), envSettings));
 }
 
 function writeSettings(next) {
@@ -363,7 +366,7 @@ function defaultSettings() {
       baseUrl: "https://api.openai.com/v1",
       azureEndpoint: "",
       azureDeployment: "",
-      azureApiVersion: "2024-02-01",
+      azureApiVersion: "2024-10-21",
       azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
       elevenLabsApiKeyEnv: "ELEVENLABS_API_KEY",
       elevenLabsModel: "scribe_v2"
@@ -380,6 +383,32 @@ function mergeSettings(base, patch) {
       ...(patch.transcription ?? {})
     }
   };
+}
+
+function settingsFromEnv() {
+  const transcription = {};
+  copyEnvValue(transcription, "provider", "WORKERFLOW_TRANSCRIPTION_PROVIDER");
+  copyEnvValue(transcription, "model", "OPENAI_TRANSCRIPTION_MODEL");
+  copyEnvValue(transcription, "baseUrl", "OPENAI_BASE_URL");
+  copyEnvValue(transcription, "apiKeyEnv", "OPENAI_API_KEY_ENV");
+  copyEnvValue(transcription, "azureEndpoint", "AZURE_OPENAI_ENDPOINT");
+  copyEnvValue(transcription, "azureDeployment", "AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT", "AZURE_OPENAI_DEPLOYMENT");
+  copyEnvValue(transcription, "azureApiVersion", "AZURE_OPENAI_API_VERSION");
+  copyEnvValue(transcription, "azureApiKeyEnv", "AZURE_OPENAI_API_KEY_ENV");
+  copyEnvValue(transcription, "elevenLabsApiKeyEnv", "ELEVENLABS_API_KEY_ENV");
+  copyEnvValue(transcription, "elevenLabsModel", "ELEVENLABS_TRANSCRIPTION_MODEL");
+
+  return Object.keys(transcription).length ? { transcription } : {};
+}
+
+function copyEnvValue(target, settingKey, ...envKeys) {
+  for (const envKey of envKeys) {
+    const value = process.env[envKey]?.trim();
+    if (value) {
+      target[settingKey] = value;
+      return;
+    }
+  }
 }
 
 function viewSettings(value) {

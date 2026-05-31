@@ -15,13 +15,16 @@ The goal is not to build another chat app or full IDE. Workerflow should feel li
 This repository is at the project foundation stage. The current code provides:
 
 - a runnable `workerflow` CLI
-- project attach/status commands
+- project attach/status/doctor commands
 - repo context capture
 - safety defaults
 - structured agent prompt generation
+- Codex and Claude CLI adapter scaffolding
+- an Electron tray app with a hotkey overlay
+- configurable transcription providers
 - OSS docs, issue templates, and CI
 
-The desktop app, voice pipeline, and agent adapters are next.
+Native macOS hold-to-talk capture, the diff review surface, and broader adapter coverage are still active work.
 
 ## Quick Start
 
@@ -42,6 +45,8 @@ pnpm workerflow run --dry-run "Fix the failing auth test in a new worktree and r
 ```
 
 The `attach` command writes `.workerflow.json` in the current repository. That file tells Workerflow which agent to use, which commands verify the repo, and which paths should require extra care.
+
+For voice transcription, copy `.env.example` to `.env` during local development or to `~/.workerflow/.env` for desktop-wide settings, then fill the provider keys. Workerflow loads those files without committing secrets.
 
 ## Product Shape
 

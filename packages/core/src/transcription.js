@@ -3,7 +3,12 @@ import path from "node:path";
 import { cleanSpokenCommand } from "./task.js";
 
 export async function transcribeAudioFile({ filePath, config, prompt }) {
-  const provider = config.transcription?.provider ?? "mock";
+  const transcriptionConfig = resolveTranscriptionConfig(config);
+  const provider = transcriptionConfig.provider ?? "mock";
+  const resolvedConfig = {
+    ...config,
+    transcription: transcriptionConfig
+  };
 
   if (provider === "mock") {
     return {
@@ -14,22 +19,47 @@ export async function transcribeAudioFile({ filePath, config, prompt }) {
   }
 
   if (provider === "openai") {
-    return transcribeWithOpenAI({ filePath, config, prompt });
+    return transcribeWithOpenAI({ filePath, config: resolvedConfig, prompt });
   }
 
   if (provider === "openai-compatible") {
-    return transcribeWithOpenAICompatible({ filePath, config, prompt });
+    return transcribeWithOpenAICompatible({ filePath, config: resolvedConfig, prompt });
   }
 
   if (provider === "azure-openai") {
-    return transcribeWithAzureOpenAI({ filePath, config, prompt });
+    return transcribeWithAzureOpenAI({ filePath, config: resolvedConfig, prompt });
   }
 
   if (provider === "elevenlabs") {
-    return transcribeWithElevenLabs({ filePath, config, prompt });
+    return transcribeWithElevenLabs({ filePath, config: resolvedConfig, prompt });
   }
 
   throw new Error(`Unsupported transcription provider "${provider}"`);
+}
+
+function resolveTranscriptionConfig(config) {
+  const transcriptionConfig = config.transcription ?? {};
+  return {
+    ...transcriptionConfig,
+    provider: envValue("WORKERFLOW_TRANSCRIPTION_PROVIDER") ?? transcriptionConfig.provider,
+    model: envValue("OPENAI_TRANSCRIPTION_MODEL") ?? transcriptionConfig.model,
+    apiKeyEnv: envValue("OPENAI_API_KEY_ENV") ?? transcriptionConfig.apiKeyEnv,
+    baseUrl: envValue("OPENAI_BASE_URL") ?? transcriptionConfig.baseUrl,
+    azureEndpoint: envValue("AZURE_OPENAI_ENDPOINT") ?? transcriptionConfig.azureEndpoint,
+    azureDeployment:
+      envValue("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT") ??
+      envValue("AZURE_OPENAI_DEPLOYMENT") ??
+      transcriptionConfig.azureDeployment,
+    azureApiVersion: envValue("AZURE_OPENAI_API_VERSION") ?? transcriptionConfig.azureApiVersion,
+    azureApiKeyEnv: envValue("AZURE_OPENAI_API_KEY_ENV") ?? transcriptionConfig.azureApiKeyEnv,
+    elevenLabsApiKeyEnv: envValue("ELEVENLABS_API_KEY_ENV") ?? transcriptionConfig.elevenLabsApiKeyEnv,
+    elevenLabsModel: envValue("ELEVENLABS_TRANSCRIPTION_MODEL") ?? transcriptionConfig.elevenLabsModel
+  };
+}
+
+function envValue(key) {
+  const value = process.env[key]?.trim();
+  return value ? value : undefined;
 }
 
 async function transcribeWithOpenAI({ filePath, config, prompt }) {
@@ -97,7 +127,7 @@ async function transcribeWithAzureOpenAI({ filePath, config, prompt }) {
   const transcriptionConfig = config.transcription ?? {};
   const endpoint = transcriptionConfig.azureEndpoint?.replace(/\/$/, "");
   const deployment = transcriptionConfig.azureDeployment;
-  const apiVersion = transcriptionConfig.azureApiVersion ?? "2024-02-01";
+  const apiVersion = transcriptionConfig.azureApiVersion ?? "2024-10-21";
   const apiKeyEnv = transcriptionConfig.azureApiKeyEnv ?? "AZURE_OPENAI_API_KEY";
   const apiKey = process.env[apiKeyEnv];
 

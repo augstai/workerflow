@@ -37,3 +37,42 @@ test("azure transcription validates endpoint config before network", async () =>
     /Missing transcription\.azureEndpoint/
   );
 });
+
+test("azure transcription can read endpoint and deployment from env", async () => {
+  const previousProvider = process.env.WORKERFLOW_TRANSCRIPTION_PROVIDER;
+  const previousEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const previousDeployment = process.env.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT;
+  const previousKey = process.env.AZURE_OPENAI_API_KEY;
+
+  process.env.WORKERFLOW_TRANSCRIPTION_PROVIDER = "azure-openai";
+  process.env.AZURE_OPENAI_ENDPOINT = "https://example.openai.azure.com";
+  process.env.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT = "voice-deploy";
+  delete process.env.AZURE_OPENAI_API_KEY;
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workerflow-transcribe-"));
+  const filePath = path.join(dir, "sample.webm");
+  fs.writeFileSync(filePath, "mock");
+
+  try {
+    await assert.rejects(
+      transcribeAudioFile({
+        filePath,
+        config: DEFAULT_CONFIG
+      }),
+      /Missing AZURE_OPENAI_API_KEY/
+    );
+  } finally {
+    restoreEnv("WORKERFLOW_TRANSCRIPTION_PROVIDER", previousProvider);
+    restoreEnv("AZURE_OPENAI_ENDPOINT", previousEndpoint);
+    restoreEnv("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT", previousDeployment);
+    restoreEnv("AZURE_OPENAI_API_KEY", previousKey);
+  }
+});
+
+function restoreEnv(key, value) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}

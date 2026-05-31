@@ -8,6 +8,7 @@ import {
   formatSafetyRules,
   getJob,
   listJobs,
+  loadEnvironment,
   readProjectConfig,
   runCommand,
   runWorkerflowJob,
@@ -18,6 +19,7 @@ import {
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const rest = args.slice(1);
+const loadedEnvFiles = loadEnvironment({ cwd: process.cwd() });
 
 try {
   if (command === "attach") {
@@ -105,6 +107,7 @@ async function doctor(rawArgs) {
   console.log(`Config: ${path ?? "not attached"}`);
   console.log(`Agent: ${(config ?? DEFAULT_CONFIG).agent}`);
   console.log(`Hotkey: ${(config ?? DEFAULT_CONFIG).desktop.hotkey}`);
+  console.log(`Env files: ${loadedEnvFiles.length ? loadedEnvFiles.map((item) => item.path).join(", ") : "none"}`);
   console.log("");
 
   for (const [name, result] of checks) {

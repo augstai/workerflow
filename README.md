@@ -20,11 +20,12 @@ This repository is at the project foundation stage. The current code provides:
 - safety defaults
 - structured agent prompt generation
 - Codex and Claude CLI adapter scaffolding
-- an Electron tray app with a hotkey overlay
+- an Electron tray app with a React/Vite hotkey overlay
+- a compact recording pill built with adapted ElevenLabs UI components
 - configurable transcription providers
 - OSS docs, issue templates, and CI
 
-Native macOS hold-to-talk capture, the diff review surface, and broader adapter coverage are still active work.
+Native macOS hold-to-talk hardening, the diff review surface, and broader adapter coverage are still active work.
 
 ## Quick Start
 
@@ -89,6 +90,12 @@ Run the development desktop shell:
 
 ```bash
 pnpm dev:desktop
+```
+
+Build the desktop renderer:
+
+```bash
+pnpm build:desktop
 ```
 
 The tray app defaults to `Alt+Space`, which maps to Option+Space on macOS keyboards. The first implementation supports a reliable toggle hotkey through Electron. True hold-to-talk mode is wired for a native macOS helper and requires Accessibility permission:

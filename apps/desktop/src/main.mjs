@@ -202,8 +202,8 @@ ipcMain.handle("system:openPath", (_event, targetPath) => {
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
-    width: 560,
-    height: 680,
+    width: 520,
+    height: 560,
     show: false,
     frame: false,
     transparent: true,
@@ -217,7 +217,11 @@ function createOverlayWindow() {
     }
   });
 
-  overlayWindow.loadFile(path.join(__dirname, "overlay.html"));
+  if (process.env.WORKERFLOW_RENDERER_URL) {
+    overlayWindow.loadURL(process.env.WORKERFLOW_RENDERER_URL);
+  } else {
+    overlayWindow.loadFile(path.join(__dirname, "../dist/renderer/index.html"));
+  }
   overlayWindow.webContents.once("did-finish-load", () => {
     if (process.env.WORKERFLOW_SHOW_ON_START !== "0") {
       showOverlay("ready", { pinMs: 3000 });

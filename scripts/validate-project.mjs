@@ -13,10 +13,10 @@ const requiredFiles = [
   "apps/cli/bin/workerflow.js",
   "apps/desktop/package.json",
   "apps/desktop/src/main.mjs",
-  "apps/desktop/src/overlay.html",
-  "apps/desktop/src/overlay.css",
-  "apps/desktop/src/overlay.js",
   "apps/desktop/src/preload.cjs",
+  "apps/desktop/renderer/index.html",
+  "apps/desktop/renderer/src/main.tsx",
+  "apps/desktop/renderer/src/styles.css",
   "packages/core/package.json",
   "packages/core/src/index.js"
 ];

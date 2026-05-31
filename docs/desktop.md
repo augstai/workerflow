@@ -1,11 +1,17 @@
 # Desktop App
 
-Workerflow's desktop app is a Mac-first tray app.
+Workerflow's desktop app is a Mac-first tray app with a compact React/Vite overlay.
 
 ## Development
 
 ```bash
 pnpm dev:desktop
+```
+
+Build the packaged renderer assets:
+
+```bash
+pnpm build:desktop
 ```
 
 Check local agent wiring:
@@ -34,6 +40,12 @@ The app reads `~/.workerflow/settings.json`. Defaults:
 ```
 
 `Alt+Space` maps to Option+Space on macOS.
+
+## Renderer
+
+The desktop renderer lives in `apps/desktop/renderer` and uses React, Vite, Tailwind, and adapted ElevenLabs UI components for the voice button and live waveform.
+
+The adapted component files are kept under `apps/desktop/renderer/src/components/elevenlabs-ui` with a local notice file. Keep attribution intact when editing or adding copied components.
 
 ## Hold-To-Talk
 

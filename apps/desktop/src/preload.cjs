@@ -8,13 +8,37 @@ contextBridge.exposeInMainWorld("workerflow", {
   requestMicrophoneAccess: () => ipcRenderer.invoke("permissions:microphone"),
   recordingFailed: () => ipcRenderer.invoke("recording:failed"),
   stopRecording: () => ipcRenderer.invoke("recording:stop-request"),
-  sendAudio: (buffer) => ipcRenderer.invoke("recording:audio", buffer),
+  sendAudio: (payload) => ipcRenderer.invoke("recording:audio", payload),
   runJob: (payload) => ipcRenderer.invoke("job:run", payload),
   openPath: (targetPath) => ipcRenderer.invoke("system:openPath", targetPath),
-  onOverlayStatus: (callback) => ipcRenderer.on("overlay:status", (_event, payload) => callback(payload)),
-  onRecordingStart: (callback) => ipcRenderer.on("recording:start", callback),
-  onRecordingStop: (callback) => ipcRenderer.on("recording:stop", callback),
-  onTaskReady: (callback) => ipcRenderer.on("task:ready", (_event, payload) => callback(payload)),
-  onTaskError: (callback) => ipcRenderer.on("task:error", (_event, payload) => callback(payload)),
-  onJobStatus: (callback) => ipcRenderer.on("job:status", (_event, payload) => callback(payload))
+  onOverlayStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("overlay:status", listener);
+    return () => ipcRenderer.removeListener("overlay:status", listener);
+  },
+  onRecordingStart: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("recording:start", listener);
+    return () => ipcRenderer.removeListener("recording:start", listener);
+  },
+  onRecordingStop: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("recording:stop", listener);
+    return () => ipcRenderer.removeListener("recording:stop", listener);
+  },
+  onTaskReady: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("task:ready", listener);
+    return () => ipcRenderer.removeListener("task:ready", listener);
+  },
+  onTaskError: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("task:error", listener);
+    return () => ipcRenderer.removeListener("task:error", listener);
+  },
+  onJobStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("job:status", listener);
+    return () => ipcRenderer.removeListener("job:status", listener);
+  }
 });

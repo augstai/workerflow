@@ -4,7 +4,7 @@ Workerflow has four layers.
 
 ## Desktop Shell
 
-The planned desktop shell is a Mac-first tray app with:
+The desktop shell is a Mac-first tray app with:
 
 - global push-to-talk hotkey
 - small always-on-top recording overlay
@@ -12,7 +12,9 @@ The planned desktop shell is a Mac-first tray app with:
 - job list and result panel
 - approval prompts for risky actions
 
-Electron + React is the intended first implementation because it keeps iteration fast and makes process management, notifications, tray state, and local UI straightforward.
+Electron hosts the tray, global shortcut, notifications, local IPC, and process management. The overlay renderer uses React, Vite, Tailwind, and adapted ElevenLabs UI voice components so the product surface can stay compact and polished while the native Mac shell matures.
+
+The current Mac-specific layer includes a Swift hotkey helper for true hold-to-talk release detection. Electron's shortcut path remains useful as a reliable toggle fallback.
 
 ## Voice Pipeline
 

@@ -13,11 +13,13 @@
   "scripts": {
     "workerflow": "node apps/cli/bin/workerflow.js",
     "dev:cli": "node apps/cli/bin/workerflow.js",
-    "desktop": "electron apps/desktop/src/main.mjs",
-    "dev:desktop": "electron apps/desktop/src/main.mjs",
+    "desktop": "pnpm --filter @workerflow/desktop start",
+    "dev:desktop": "pnpm --filter @workerflow/desktop dev",
+    "build:desktop": "pnpm --filter @workerflow/desktop build",
     "lint": "node scripts/validate-project.mjs",
     "test": "node --test packages/core/test/*.test.js",
-    "check": "pnpm lint && pnpm test"
+    "typecheck": "pnpm --filter @workerflow/desktop typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "keywords": [
     "agent",

@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+dist/
+build/
+coverage/
+.turbo/
+.cache/
+*.log
+
+# Workerflow local state
+.workerflow/jobs/
+
+# Secrets
+.env
+.env.*
+!.env.example

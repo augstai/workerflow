@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "agent": "codex",
+  "worktree": true,
+  "commands": {
+    "test": "pnpm test",
+    "build": "",
+    "lint": "pnpm lint"
+  },
+  "safePaths": [
+    "app",
+    "src",
+    "components",
+    "packages",
+    "tests"
+  ],
+  "denyPaths": [
+    ".env",
+    ".env.*",
+    "prisma/schema.prisma",
+    "migrations",
+    "secrets",
+    "credentials"
+  ]
+}

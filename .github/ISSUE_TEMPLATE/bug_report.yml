@@ -1,0 +1,28 @@
+name: Bug report
+description: Report something broken in Workerflow.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the command, UI action, or agent job that failed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.1.0"

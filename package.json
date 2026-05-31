@@ -1,0 +1,37 @@
+{
+  "name": "workerflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Push-to-talk background workflows for coding agents.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "workerflow": "node apps/cli/bin/workerflow.js",
+    "dev:cli": "node apps/cli/bin/workerflow.js",
+    "lint": "node scripts/validate-project.mjs",
+    "test": "node --test packages/core/test/*.test.js",
+    "check": "pnpm lint && pnpm test"
+  },
+  "keywords": [
+    "agent",
+    "codex",
+    "claude",
+    "aider",
+    "voice",
+    "developer-tools",
+    "workflow"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/augstai/workerflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/augstai/workerflow/issues"
+  },
+  "homepage": "https://github.com/augstai/workerflow#readme"
+}

@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+import {
+  buildAgentPrompt,
+  captureRepoContext,
+  createJob,
+  DEFAULT_CONFIG,
+  formatSafetyRules,
+  listJobs,
+  readProjectConfig,
+  writeProjectConfig
+} from "../../../packages/core/src/index.js";
+
+const args = process.argv.slice(2);
+const command = args[0] ?? "help";
+const rest = args.slice(1);
+
+try {
+  if (command === "attach") {
+    attach(rest);
+  } else if (command === "status") {
+    status();
+  } else if (command === "prompt") {
+    prompt(rest);
+  } else if (command === "job") {
+    job(rest);
+  } else if (command === "safety") {
+    safety();
+  } else if (command === "help" || command === "--help" || command === "-h") {
+    help();
+  } else {
+    fail(`Unknown command: ${command}`);
+  }
+} catch (error) {
+  fail(error.message);
+}
+
+function attach(rawArgs) {
+  const flags = parseFlags(rawArgs);
+  const existing = readProjectConfig(process.cwd()).config ?? {};
+  const config = {
+    ...DEFAULT_CONFIG,
+    ...existing,
+    agent: flags.agent ?? existing.agent ?? DEFAULT_CONFIG.agent,
+    commands: {
+      ...DEFAULT_CONFIG.commands,
+      ...(existing.commands ?? {}),
+      test: flags.test ?? existing.commands?.test ?? DEFAULT_CONFIG.commands.test,
+      build: flags.build ?? existing.commands?.build ?? DEFAULT_CONFIG.commands.build,
+      lint: flags.lint ?? existing.commands?.lint ?? DEFAULT_CONFIG.commands.lint
+    },
+    worktree: flags.worktree ?? existing.worktree ?? DEFAULT_CONFIG.worktree
+  };
+
+  const { path } = writeProjectConfig(process.cwd(), config);
+
+  console.log(`Workerflow attached: ${path}`);
+  console.log(`Agent: ${config.agent}`);
+  console.log(`Worktree: ${config.worktree ? "enabled" : "disabled"}`);
+  printCommand("test", config.commands.test);
+  printCommand("build", config.commands.build);
+  printCommand("lint", config.commands.lint);
+}
+
+function status() {
+  const { config, path } = readProjectConfig(process.cwd());
+  const context = captureRepoContext(process.cwd());
+
+  console.log("Workerflow status");
+  console.log("");
+  console.log(`Config: ${path ?? "not attached"}`);
+  console.log(`Repo: ${context.repoRoot}`);
+  console.log(`Branch: ${context.branch ?? "unknown"}`);
+  console.log(`Package manager: ${context.packageManager ?? "unknown"}`);
+  console.log(`Changed files: ${context.changedFiles.length}`);
+  console.log(`Diff stat: ${context.diffStat || "clean"}`);
+
+  if (config) {
+    console.log("");
+    console.log(`Agent: ${config.agent}`);
+    console.log(`Worktree: ${config.worktree ? "enabled" : "disabled"}`);
+    printCommand("test", config.commands?.test);
+    printCommand("build", config.commands?.build);
+    printCommand("lint", config.commands?.lint);
+  }
+}
+
+function prompt(rawArgs) {
+  const task = rawArgs.join(" ").trim();
+  if (!task) {
+    fail("Usage: workerflow prompt <task>");
+  }
+
+  const { config } = readProjectConfig(process.cwd());
+  const context = captureRepoContext(process.cwd());
+
+  console.log(
+    buildAgentPrompt({
+      task,
+      config: config ?? DEFAULT_CONFIG,
+      context
+    })
+  );
+}
+
+function job(rawArgs) {
+  const subcommand = rawArgs[0] ?? "list";
+  const subArgs = rawArgs.slice(1);
+
+  if (subcommand === "list") {
+    const jobs = listJobs();
+    if (jobs.length === 0) {
+      console.log("No Workerflow jobs yet.");
+      return;
+    }
+
+    for (const item of jobs) {
+      console.log(`${item.id}  ${item.status}  ${item.task}`);
+    }
+    return;
+  }
+
+  if (subcommand === "create") {
+    const task = subArgs.join(" ").trim();
+    if (!task) {
+      fail("Usage: workerflow job create <task>");
+    }
+
+    const { config } = readProjectConfig(process.cwd());
+    const context = captureRepoContext(process.cwd());
+    const record = createJob({
+      task,
+      repoRoot: context.repoRoot,
+      branch: context.branch,
+      agent: config?.agent ?? DEFAULT_CONFIG.agent,
+      prompt: buildAgentPrompt({
+        task,
+        config: config ?? DEFAULT_CONFIG,
+        context
+      })
+    });
+
+    console.log(`Created job ${record.id}`);
+    console.log(`Status: ${record.status}`);
+    return;
+  }
+
+  fail(`Unknown job command: ${subcommand}`);
+}
+
+function safety() {
+  console.log(formatSafetyRules());
+}
+
+function help() {
+  console.log(`Workerflow
+
+Usage:
+  workerflow attach [--agent codex] [--test "pnpm test"] [--build "..."] [--lint "..."] [--no-worktree]
+  workerflow status
+  workerflow prompt <task>
+  workerflow job list
+  workerflow job create <task>
+  workerflow safety
+`);
+}
+
+function parseFlags(rawArgs) {
+  const flags = {};
+
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const value = rawArgs[index];
+    if (value === "--no-worktree") {
+      flags.worktree = false;
+      continue;
+    }
+
+    if (!value.startsWith("--")) {
+      continue;
+    }
+
+    const key = value.slice(2);
+    const next = rawArgs[index + 1];
+    if (!next || next.startsWith("--")) {
+      flags[key] = true;
+    } else {
+      flags[key] = next;
+      index += 1;
+    }
+  }
+
+  return flags;
+}
+
+function printCommand(label, value) {
+  if (value) {
+    console.log(`${label}: ${value}`);
+  }
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}

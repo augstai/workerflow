@@ -1,0 +1,16 @@
+{
+  "name": "@workerflow/core",
+  "version": "0.1.0",
+  "description": "Core workflow primitives for Workerflow.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

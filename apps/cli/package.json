@@ -1,0 +1,13 @@
+{
+  "name": "@workerflow/cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for Workerflow.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "workerflow": "./bin/workerflow.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

@@ -8,6 +8,16 @@ Workerflow's desktop app is a Mac-first tray app.
 pnpm dev:desktop
 ```
 
+Check local agent wiring:
+
+```bash
+pnpm workerflow doctor
+pnpm workerflow doctor --smoke-codex
+pnpm workerflow doctor --smoke-claude
+```
+
+The smoke checks intentionally run only when requested because they may use provider credits.
+
 The app reads `~/.workerflow/settings.json`. Defaults:
 
 ```json

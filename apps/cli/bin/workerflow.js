@@ -9,6 +9,7 @@ import {
   getJob,
   listJobs,
   readProjectConfig,
+  runCommand,
   runWorkerflowJob,
   transcribeAudioFile,
   writeProjectConfig
@@ -22,7 +23,7 @@ try {
   if (command === "attach") {
     attach(rest);
   } else if (command === "doctor") {
-    doctor();
+    await doctor(rest);
   } else if (command === "run") {
     await run(rest);
   } else if (command === "status") {
@@ -87,7 +88,8 @@ function attach(rawArgs) {
   printCommand("lint", config.commands.lint);
 }
 
-function doctor() {
+async function doctor(rawArgs) {
+  const flags = parseFlags(rawArgs);
   const { config, path } = readProjectConfig(process.cwd());
   const context = captureRepoContext(process.cwd());
   const checks = [
@@ -109,11 +111,45 @@ function doctor() {
     console.log(`${result.ok ? "ok" : "missing"}  ${name}${result.path ? `  ${result.path}` : ""}`);
   }
 
+  if (flags["smoke-codex"]) {
+    await smokeAgent(
+      "codex",
+      ["--ask-for-approval", "never", "exec", "--cd", process.cwd(), "--sandbox", "read-only", "--color", "never", "-"],
+      "Say exactly: workerflow-codex-ok"
+    );
+  }
+
+  if (flags["smoke-claude"]) {
+    await smokeAgent(
+      "claude",
+      ["-p", "--permission-mode", "dontAsk", "--output-format", "text", "--no-session-persistence", "Say exactly: workerflow-claude-ok"],
+      ""
+    );
+  }
+
   const activeConfig = config ?? DEFAULT_CONFIG;
   console.log("");
   printCommand("test", activeConfig.commands?.test);
   printCommand("build", activeConfig.commands?.build);
   printCommand("lint", activeConfig.commands?.lint);
+}
+
+async function smokeAgent(name, args, input) {
+  console.log("");
+  console.log(`Smoke: ${name}`);
+  const result = await runCommand({
+    command: name,
+    args,
+    cwd: process.cwd(),
+    input,
+    timeoutMs: 20000
+  });
+
+  const output = `${result.stdout}${result.stderr}`.trim();
+  console.log(`${result.code === 0 ? "ok" : "failed"}  exit=${result.code}${result.timedOut ? " timed-out" : ""}`);
+  if (output) {
+    console.log(output.split("\n").slice(0, 6).join("\n"));
+  }
 }
 
 async function run(rawArgs) {
@@ -278,7 +314,7 @@ function help() {
 
 Usage:
   workerflow attach [--agent codex] [--test "pnpm test"] [--build "..."] [--lint "..."] [--no-worktree]
-  workerflow doctor
+  workerflow doctor [--smoke-codex] [--smoke-claude]
   workerflow status
   workerflow prompt <task>
   workerflow transcribe <audio-file>

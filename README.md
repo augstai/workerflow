@@ -36,6 +36,7 @@ pnpm install
 pnpm workerflow attach --agent codex --test "pnpm test"
 pnpm workerflow status
 pnpm workerflow doctor
+pnpm workerflow doctor --smoke-codex
 pnpm workerflow prompt "Fix the failing auth test in a new worktree and run tests."
 pnpm workerflow run --dry-run "Fix the failing auth test in a new worktree and run tests."
 ```

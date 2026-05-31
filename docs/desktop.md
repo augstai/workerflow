@@ -69,6 +69,8 @@ AZURE_OPENAI_API_VERSION=2025-03-01-preview
 AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_KEY
 ```
 
+Use the desktop `Test voice` button to verify microphone permission, recording, provider config, and transcription before running an agent job.
+
 OpenAI:
 
 ```json

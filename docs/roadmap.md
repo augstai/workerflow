@@ -33,6 +33,7 @@
 
 - microphone permission flow
 - transcription provider abstraction
+- standalone transcription test
 - command cleanup
 - dictation vs action classifier
 - compact risk confirmation

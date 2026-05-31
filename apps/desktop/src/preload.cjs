@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("workerflow", {
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   chooseRepo: () => ipcRenderer.invoke("repo:choose"),
   interpretTask: (payload) => ipcRenderer.invoke("task:interpret", payload),
+  requestMicrophoneAccess: () => ipcRenderer.invoke("permissions:microphone"),
   recordingFailed: () => ipcRenderer.invoke("recording:failed"),
   stopRecording: () => ipcRenderer.invoke("recording:stop-request"),
   sendAudio: (buffer) => ipcRenderer.invoke("recording:audio", buffer),

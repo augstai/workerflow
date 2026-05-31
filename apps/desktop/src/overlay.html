@@ -14,6 +14,7 @@
           <div class="status" id="status">Ready</div>
           <div class="meta" id="meta">Codex · current repo</div>
         </div>
+        <div class="provider-chip" id="providerChip">Mock</div>
       </section>
 
       <section class="panel">
@@ -25,7 +26,23 @@
           </select>
         </div>
 
+        <div class="voice-stage" id="voiceStage">
+          <div class="voice-copy">
+            <div class="eyebrow">Voice</div>
+            <div class="voice-state" id="voiceState">Idle</div>
+          </div>
+          <div class="wave" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <button class="voice-test" id="voiceTest" type="button">Test voice</button>
+        </div>
+
         <textarea id="task" spellcheck="false" placeholder="Say or type a task"></textarea>
+        <div class="transcript" id="transcript"></div>
 
         <div class="confirm" id="confirm" hidden>
           <div>

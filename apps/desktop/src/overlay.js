@@ -1,6 +1,11 @@
 const statusEl = document.getElementById("status");
 const metaEl = document.getElementById("meta");
 const pulseEl = document.getElementById("pulse");
+const providerChipEl = document.getElementById("providerChip");
+const voiceStageEl = document.getElementById("voiceStage");
+const voiceStateEl = document.getElementById("voiceState");
+const voiceTestButton = document.getElementById("voiceTest");
+const transcriptEl = document.getElementById("transcript");
 const taskEl = document.getElementById("task");
 const resultEl = document.getElementById("result");
 const confirmEl = document.getElementById("confirm");
@@ -33,6 +38,8 @@ const stopButton = document.getElementById("stop");
 
 let mediaRecorder;
 let chunks = [];
+let captureMode = "task";
+let testTimer;
 let settings = {};
 let context = {};
 let confirmation = null;
@@ -51,37 +58,12 @@ window.workerflow.onOverlayStatus((payload) => {
   renderAll();
 });
 
-window.workerflow.onRecordingStart(async () => {
-  setStatus("listening");
-  resultEl.textContent = "";
-  resetResult();
-  chunks = [];
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
-    };
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      const buffer = await blob.arrayBuffer();
-      setStatus("transcribing");
-      await window.workerflow.sendAudio(buffer);
-    };
-    mediaRecorder.start();
-  } catch (error) {
-    await window.workerflow.recordingFailed();
-    setStatus("ready");
-    resultEl.textContent = error.message;
-  }
+window.workerflow.onRecordingStart(async (payload) => {
+  await beginCapture(payload?.mode ?? "task");
 });
 
 window.workerflow.onRecordingStop(() => {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
-  }
+  stopCapture();
 });
 
 window.workerflow.onTaskReady((payload) => {
@@ -115,6 +97,16 @@ repoButton.addEventListener("click", async () => {
     resetConfirmation();
     renderAll();
   }
+});
+
+voiceTestButton.addEventListener("click", async () => {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    stopCapture();
+    return;
+  }
+
+  await beginCapture("test");
+  testTimer = window.setTimeout(() => stopCapture(), 3200);
 });
 
 agentSelect.addEventListener("change", async () => {
@@ -192,7 +184,7 @@ runButton.addEventListener("click", async () => {
 
 stopButton.addEventListener("click", () => {
   window.workerflow.stopRecording();
-  setStatus("ready");
+  stopCapture();
 });
 
 openArtifactsButton.addEventListener("click", () => {
@@ -205,8 +197,83 @@ taskEl.addEventListener("input", () => {
   resetConfirmation();
 });
 
+async function beginCapture(mode) {
+  captureMode = mode;
+  window.clearTimeout(testTimer);
+  setStatus("listening");
+  setVoiceState(mode === "test" ? "Testing" : "Listening");
+  resultEl.textContent = "";
+  resetResult();
+  chunks = [];
+
+  try {
+    const permission = await window.workerflow.requestMicrophoneAccess();
+    if (!permission.ok) {
+      throw new Error(`Microphone permission is ${permission.status}.`);
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = preferredMimeType();
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop());
+      if (!chunks.length) {
+        setStatus("failed");
+        setVoiceState("No audio");
+        resultEl.textContent = "No audio was captured.";
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: mediaRecorder.mimeType || mimeType || "audio/webm" });
+      const buffer = await blob.arrayBuffer();
+      setStatus("transcribing");
+      setVoiceState("Transcribing");
+      const response = await window.workerflow.sendAudio({ buffer, mode: captureMode });
+      if (captureMode === "test") {
+        renderTranscriptionTest(response);
+      }
+    };
+    mediaRecorder.start();
+  } catch (error) {
+    await window.workerflow.recordingFailed();
+    setStatus("failed");
+    setVoiceState("Blocked");
+    resultEl.textContent = error.message;
+  }
+}
+
+function stopCapture() {
+  window.clearTimeout(testTimer);
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+}
+
+function preferredMimeType() {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  return types.find((type) => window.MediaRecorder?.isTypeSupported(type)) ?? "";
+}
+
+function renderTranscriptionTest(response) {
+  if (!response?.ok) {
+    setStatus("failed");
+    setVoiceState("Failed");
+    resultEl.textContent = response?.error ?? "Transcription failed.";
+    return;
+  }
+
+  setStatus("ready");
+  setVoiceState("Passed");
+  transcriptEl.textContent = response.transcript || response.cleaned || "";
+  resultEl.textContent = `${providerLabel(settings.transcription?.provider)} transcription passed`;
+}
+
 function setConfirmation(payload) {
   confirmation = payload;
+  transcriptEl.textContent = payload.transcript ?? "";
   confirmTitleEl.textContent = payload.task;
   confirmAgentEl.textContent = settings.agentLabel ?? formatAgent(settings.agent);
   confirmRepoEl.textContent = repoName();
@@ -256,6 +323,7 @@ function setStatus(value) {
 
   statusEl.textContent = labels[value] ?? value;
   pulseEl.className = `pulse ${["listening", "running", "review", "failed"].includes(value) ? value : ""}`;
+  voiceStageEl.dataset.state = value;
 }
 
 function renderAll() {
@@ -264,6 +332,7 @@ function renderAll() {
   hotkeyInput.value = settings.hotkey ?? "Alt+Space";
   hotkeyModeSelect.value = settings.hotkeyMode ?? "toggle";
   providerSelect.value = settings.transcription?.provider ?? "mock";
+  providerChipEl.textContent = providerLabel(providerSelect.value);
   modelInput.value = providerModelValue();
   endpointInput.value = providerEndpointValue();
   deploymentInput.value = settings.transcription?.azureDeployment ?? "";
@@ -280,12 +349,27 @@ function renderMeta() {
   }`;
 }
 
+function setVoiceState(value) {
+  voiceStateEl.textContent = value;
+}
+
 function repoName() {
   return context.repoRoot?.split("/").filter(Boolean).at(-1) ?? settings.activeRepo?.split("/").filter(Boolean).at(-1) ?? "repo";
 }
 
 function formatAgent(value) {
   return value === "claude" ? "Claude" : "Codex";
+}
+
+function providerLabel(value) {
+  const labels = {
+    "azure-openai": "Azure",
+    elevenlabs: "ElevenLabs",
+    mock: "Mock",
+    openai: "OpenAI",
+    "openai-compatible": "Compatible"
+  };
+  return labels[value] ?? value ?? "Mock";
 }
 
 function statusToView(value) {

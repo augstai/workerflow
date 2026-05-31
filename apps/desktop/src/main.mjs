@@ -12,7 +12,9 @@ import {
   nativeImage,
   Notification,
   screen,
+  session,
   shell,
+  systemPreferences,
   Tray
 } from "electron";
 import {
@@ -40,6 +42,7 @@ app.setName("Workerflow");
 app.whenReady().then(() => {
   loadEnvironment({ cwd: process.cwd() });
   settings = readSettings();
+  configureMediaPermissions();
   createTray();
   createOverlayWindow();
   registerHotkey();
@@ -103,10 +106,18 @@ ipcMain.handle("recording:stop-request", () => {
   stopRecording();
 });
 
+ipcMain.handle("permissions:microphone", async () => microphoneAccessStatus());
+
 ipcMain.handle("recording:audio", async (_event, payload) => {
+  const mode = payload?.mode ?? "task";
+  const buffer = payload instanceof ArrayBuffer ? payload : payload?.buffer;
+  if (!buffer) {
+    return { ok: false, error: "No audio captured." };
+  }
+
   const audioPath = path.join(workerflowHome(), "last-recording.webm");
   fs.mkdirSync(workerflowHome(), { recursive: true });
-  fs.writeFileSync(audioPath, Buffer.from(payload));
+  fs.writeFileSync(audioPath, Buffer.from(buffer));
 
   try {
     const result = await transcribeAudioFile({
@@ -117,6 +128,16 @@ ipcMain.handle("recording:audio", async (_event, payload) => {
       },
       prompt: "A developer is speaking a short coding-agent command."
     });
+    if (mode === "test") {
+      return {
+        ok: true,
+        transcript: result.transcript,
+        cleaned: result.cleaned,
+        provider: result.provider,
+        settings: viewSettings(settings)
+      };
+    }
+
     const interpreted = classifyTask(result.cleaned || result.transcript);
     overlayWindow.webContents.send("task:ready", {
       transcript: result.transcript,
@@ -125,10 +146,14 @@ ipcMain.handle("recording:audio", async (_event, payload) => {
       risk: interpreted.risk,
       context: safeRepoContext(settings.activeRepo)
     });
+    return { ok: true, transcript: result.transcript, cleaned: result.cleaned };
   } catch (error) {
-    overlayWindow.webContents.send("task:error", {
-      message: error.message
-    });
+    if (mode === "test") {
+      return { ok: false, error: error.message };
+    }
+
+    overlayWindow.webContents.send("task:error", { message: error.message });
+    return { ok: false, error: error.message };
   }
 });
 
@@ -178,7 +203,7 @@ ipcMain.handle("system:openPath", (_event, targetPath) => {
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
     width: 560,
-    height: 620,
+    height: 680,
     show: false,
     frame: false,
     transparent: true,
@@ -236,6 +261,13 @@ function updateTrayMenu() {
     }
   ]);
   tray.setContextMenu(menu);
+}
+
+function configureMediaPermissions() {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === "media");
+  });
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => permission === "media");
 }
 
 function registerHotkey() {
@@ -304,7 +336,7 @@ function startMacHotkeyHelper() {
 function startRecording() {
   recording = true;
   showOverlay("listening");
-  overlayWindow.webContents.send("recording:start");
+  overlayWindow.webContents.send("recording:start", { mode: "task" });
 }
 
 function stopRecording() {
@@ -444,4 +476,25 @@ function displayHotkey(value) {
 
 function formatAgent(value) {
   return value === "claude" ? "Claude" : "Codex";
+}
+
+async function microphoneAccessStatus() {
+  if (process.platform !== "darwin") {
+    return { ok: true, status: "available" };
+  }
+
+  const status = systemPreferences.getMediaAccessStatus("microphone");
+  if (status === "granted") {
+    return { ok: true, status };
+  }
+
+  if (status === "not-determined") {
+    const granted = await systemPreferences.askForMediaAccess("microphone");
+    return {
+      ok: granted,
+      status: systemPreferences.getMediaAccessStatus("microphone")
+    };
+  }
+
+  return { ok: false, status };
 }

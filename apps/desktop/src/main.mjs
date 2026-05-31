@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -31,6 +30,7 @@ let overlayWindow;
 let settings;
 let recording = false;
 let helperProcess;
+let keepOverlayVisibleUntil = 0;
 
 app.setName("Workerflow");
 
@@ -40,6 +40,7 @@ app.whenReady().then(() => {
   createOverlayWindow();
   registerHotkey();
   app.dock?.hide();
+  console.log(`Workerflow desktop ready. Hotkey: ${settings.hotkey}. Tray: active.`);
 });
 
 app.on("will-quit", () => {
@@ -152,8 +153,13 @@ function createOverlayWindow() {
   });
 
   overlayWindow.loadFile(path.join(__dirname, "overlay.html"));
+  overlayWindow.webContents.once("did-finish-load", () => {
+    if (process.env.WORKERFLOW_SHOW_ON_START !== "0") {
+      showOverlay("ready", { pinMs: 3000 });
+    }
+  });
   overlayWindow.on("blur", () => {
-    if (!recording) {
+    if (!recording && Date.now() > keepOverlayVisibleUntil) {
       overlayWindow.hide();
     }
   });
@@ -262,7 +268,11 @@ function stopRecording() {
   overlayWindow.webContents.send("recording:stop");
 }
 
-function showOverlay(status) {
+function showOverlay(status, options = {}) {
+  if (options.pinMs) {
+    keepOverlayVisibleUntil = Date.now() + options.pinMs;
+  }
+
   const display = overlayWindow.getBounds();
   const workArea = screen.getPrimaryDisplay().workArea;
   overlayWindow.setPosition(

@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("workerflow", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
+  chooseRepo: () => ipcRenderer.invoke("repo:choose"),
+  interpretTask: (payload) => ipcRenderer.invoke("task:interpret", payload),
   recordingFailed: () => ipcRenderer.invoke("recording:failed"),
   stopRecording: () => ipcRenderer.invoke("recording:stop-request"),
   sendAudio: (buffer) => ipcRenderer.invoke("recording:audio", buffer),

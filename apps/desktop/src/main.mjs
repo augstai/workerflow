@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import {
   app,
   BrowserWindow,
+  dialog,
   globalShortcut,
   ipcMain,
   Menu,
@@ -16,6 +17,7 @@ import {
 } from "electron";
 import {
   classifyTask,
+  captureRepoContext,
   DEFAULT_CONFIG,
   runWorkerflowJob,
   transcribeAudioFile,
@@ -40,7 +42,7 @@ app.whenReady().then(() => {
   createOverlayWindow();
   registerHotkey();
   app.dock?.hide();
-  console.log(`Workerflow desktop ready. Hotkey: ${settings.hotkey}. Tray: active.`);
+  console.log(`Workerflow desktop ready. Hotkey: ${displayHotkey(settings.hotkey)}. Tray: active.`);
 });
 
 app.on("will-quit", () => {
@@ -48,16 +50,47 @@ app.on("will-quit", () => {
   helperProcess?.kill();
 });
 
-ipcMain.handle("settings:get", () => settings);
+ipcMain.handle("settings:get", () => ({
+  settings: viewSettings(settings),
+  context: safeRepoContext(settings.activeRepo)
+}));
 
 ipcMain.handle("settings:update", (_event, patch) => {
-  settings = writeSettings({
-    ...settings,
-    ...patch
-  });
+  settings = writeSettings(mergeSettings(settings, patch));
   registerHotkey();
   updateTrayMenu();
-  return settings;
+  return viewSettings(settings);
+});
+
+ipcMain.handle("repo:choose", async () => {
+  const result = await dialog.showOpenDialog(overlayWindow, {
+    defaultPath: settings.activeRepo,
+    properties: ["openDirectory"]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true, settings: viewSettings(settings) };
+  }
+
+  settings = writeSettings({
+    ...settings,
+    activeRepo: result.filePaths[0]
+  });
+  updateTrayMenu();
+  return {
+    canceled: false,
+    settings: viewSettings(settings),
+    context: safeRepoContext(settings.activeRepo)
+  };
+});
+
+ipcMain.handle("task:interpret", (_event, payload) => {
+  const interpreted = classifyTask(payload.task ?? "");
+  return {
+    ...interpreted,
+    context: safeRepoContext(settings.activeRepo),
+    settings: viewSettings(settings)
+  };
 });
 
 ipcMain.handle("recording:failed", () => {
@@ -87,7 +120,8 @@ ipcMain.handle("recording:audio", async (_event, payload) => {
       transcript: result.transcript,
       task: interpreted.task,
       mode: interpreted.mode,
-      risk: interpreted.risk
+      risk: interpreted.risk,
+      context: safeRepoContext(settings.activeRepo)
     });
   } catch (error) {
     overlayWindow.webContents.send("task:error", {
@@ -110,13 +144,17 @@ ipcMain.handle("job:run", async (_event, payload) => {
   const job = await runWorkerflowJob({
     task,
     cwd: settings.activeRepo,
-    agent: settings.agent
+    agent: settings.agent,
+    onStatus: (status) => {
+      overlayWindow.webContents.send("job:status", status);
+    }
   });
 
   overlayWindow.webContents.send("job:status", {
     status: job.status,
     message: job.summary ?? job.status,
-    job
+    job,
+    context: safeRepoContext(settings.activeRepo)
   });
 
   if (Notification.isSupported()) {
@@ -137,8 +175,8 @@ ipcMain.handle("system:openPath", (_event, targetPath) => {
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
-    width: 460,
-    height: 320,
+    width: 560,
+    height: 620,
     show: false,
     frame: false,
     transparent: true,
@@ -175,11 +213,15 @@ function createTray() {
 function updateTrayMenu() {
   const menu = Menu.buildFromTemplate([
     {
-      label: `Workerflow: ${settings.agent}`,
+      label: `Workerflow: ${formatAgent(settings.agent)}`,
       enabled: false
     },
     {
-      label: `Hotkey: ${settings.hotkey}`,
+      label: `Hotkey: ${displayHotkey(settings.hotkey)}`,
+      enabled: false
+    },
+    {
+      label: `Repo: ${path.basename(settings.activeRepo)}`,
       enabled: false
     },
     {
@@ -282,7 +324,8 @@ function showOverlay(status, options = {}) {
   overlayWindow.showInactive();
   overlayWindow.webContents.send("overlay:status", {
     status,
-    settings
+    settings: viewSettings(settings),
+    context: safeRepoContext(settings.activeRepo)
   });
 }
 
@@ -296,10 +339,7 @@ function createTrayIcon() {
 
 function readSettings() {
   if (fs.existsSync(settingsPath)) {
-    return {
-      ...defaultSettings(),
-      ...JSON.parse(fs.readFileSync(settingsPath, "utf8"))
-    };
+    return mergeSettings(defaultSettings(), JSON.parse(fs.readFileSync(settingsPath, "utf8")));
   }
   return writeSettings(defaultSettings());
 }
@@ -318,7 +358,61 @@ function defaultSettings() {
     hotkeyMode: "toggle",
     transcription: {
       provider: "mock",
-      model: "gpt-4o-mini-transcribe"
+      model: "gpt-4o-mini-transcribe",
+      apiKeyEnv: "OPENAI_API_KEY",
+      baseUrl: "https://api.openai.com/v1",
+      azureEndpoint: "",
+      azureDeployment: "",
+      azureApiVersion: "2024-06-01-preview",
+      azureApiKeyEnv: "AZURE_OPENAI_API_KEY",
+      elevenLabsApiKeyEnv: "ELEVENLABS_API_KEY",
+      elevenLabsModel: "scribe_v2"
     }
   };
+}
+
+function mergeSettings(base, patch) {
+  return {
+    ...base,
+    ...patch,
+    transcription: {
+      ...(base.transcription ?? {}),
+      ...(patch.transcription ?? {})
+    }
+  };
+}
+
+function viewSettings(value) {
+  return {
+    ...value,
+    hotkeyLabel: displayHotkey(value.hotkey),
+    agentLabel: formatAgent(value.agent)
+  };
+}
+
+function safeRepoContext(repoPath) {
+  try {
+    return captureRepoContext(repoPath);
+  } catch (error) {
+    return {
+      repoRoot: repoPath,
+      branch: "",
+      changedFiles: [],
+      diffStat: "",
+      packageManager: "",
+      projectFiles: [],
+      error: error.message
+    };
+  }
+}
+
+function displayHotkey(value) {
+  if (process.platform !== "darwin") {
+    return value;
+  }
+  return value.replace(/\bAlt\b/g, "Option").replace(/\bCmd\b/g, "Command").replace(/\bCtrl\b/g, "Control");
+}
+
+function formatAgent(value) {
+  return value === "claude" ? "Claude" : "Codex";
 }

@@ -8,7 +8,7 @@ import { createJob, updateJob } from "./jobs.js";
 import { buildAgentPrompt } from "./prompt.js";
 import { captureDiff, createWorktree } from "./worktree.js";
 
-export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
+export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onStatus }) {
   const { config: projectConfig } = readProjectConfig(cwd);
   const config = projectConfig ?? DEFAULT_CONFIG;
   const selectedAgent = normalizeAgent(agent ?? config.agent);
@@ -31,6 +31,11 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
   });
 
   writeArtifact(job, "prompt.md", prompt);
+  onStatus?.({
+    status: "queued",
+    message: "Job queued",
+    job
+  });
 
   if (dryRun) {
     return updateJob(job.id, {
@@ -42,6 +47,11 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
 
   try {
     job = updateJob(job.id, { status: "preparing" });
+    onStatus?.({
+      status: "preparing",
+      message: "Preparing isolated workspace",
+      job
+    });
     const workspace = config.worktree
       ? createWorktree({ repoRoot: context.repoRoot, jobId: job.id })
       : { path: context.repoRoot, branch: context.branch };
@@ -50,6 +60,11 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
       status: "running",
       workspaceDir: workspace.path,
       worktreeBranch: workspace.branch
+    });
+    onStatus?.({
+      status: "running",
+      message: `Running ${selectedAgent}`,
+      job
     });
 
     const resultPath = path.join(job.artifactsDir, "agent-result.md");
@@ -71,6 +86,11 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
     writeArtifact(job, "agent-stdout.log", agentResult.stdout);
     writeArtifact(job, "agent-stderr.log", agentResult.stderr);
 
+    onStatus?.({
+      status: "verifying",
+      message: "Running verification",
+      job
+    });
     const verification = await runVerificationCommands(config, workspace.path);
     writeArtifact(job, "verification.json", JSON.stringify(verification, null, 2));
 
@@ -81,7 +101,7 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
     const resultText = readIfExists(resultPath) || agentResult.stdout.trim() || agentResult.stderr.trim();
     writeArtifact(job, "summary.md", buildSummary({ job, agentResult, verification, diff, resultText }));
 
-    return updateJob(job.id, {
+    const finalJob = updateJob(job.id, {
       status: agentResult.code === 0 && verification.every((item) => item.code === 0) ? "ready" : "needs-attention",
       agentExitCode: agentResult.code,
       filesChanged: diff.nameOnly,
@@ -90,13 +110,25 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false }) {
       verification,
       finishedAt: new Date().toISOString()
     });
+    onStatus?.({
+      status: finalJob.status,
+      message: finalJob.summary,
+      job: finalJob
+    });
+    return finalJob;
   } catch (error) {
     writeArtifact(job, "error.log", `${error.stack ?? error.message}\n`);
-    return updateJob(job.id, {
+    const failedJob = updateJob(job.id, {
       status: "failed",
       error: error.message,
       finishedAt: new Date().toISOString()
     });
+    onStatus?.({
+      status: "failed",
+      message: error.message,
+      job: failedJob
+    });
+    return failedJob;
   }
 }
 

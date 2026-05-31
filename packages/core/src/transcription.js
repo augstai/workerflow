@@ -127,7 +127,7 @@ async function transcribeWithAzureOpenAI({ filePath, config, prompt }) {
   const transcriptionConfig = config.transcription ?? {};
   const endpoint = transcriptionConfig.azureEndpoint?.replace(/\/$/, "");
   const deployment = transcriptionConfig.azureDeployment;
-  const apiVersion = transcriptionConfig.azureApiVersion ?? "2024-10-21";
+  const apiVersion = transcriptionConfig.azureApiVersion ?? "2025-03-01-preview";
   const apiKeyEnv = transcriptionConfig.azureApiKeyEnv ?? "AZURE_OPENAI_API_KEY";
   const apiKey = process.env[apiKeyEnv];
 

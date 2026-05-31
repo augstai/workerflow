@@ -65,7 +65,7 @@ Secrets can live in a local env file. Workerflow loads `.env` from the directory
 WORKERFLOW_TRANSCRIPTION_PROVIDER=azure-openai
 AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com
 AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT=YOUR_TRANSCRIPTION_DEPLOYMENT_NAME
-AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_API_VERSION=2025-03-01-preview
 AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_KEY
 ```
 
@@ -89,7 +89,7 @@ Azure OpenAI:
     "provider": "azure-openai",
     "azureEndpoint": "https://YOUR_RESOURCE.openai.azure.com",
     "azureDeployment": "YOUR_TRANSCRIPTION_DEPLOYMENT",
-    "azureApiVersion": "2024-10-21",
+    "azureApiVersion": "2025-03-01-preview",
     "azureApiKeyEnv": "AZURE_OPENAI_API_KEY"
   }
 }

@@ -2,6 +2,27 @@
   "schemaVersion": 1,
   "agent": "codex",
   "worktree": true,
+  "desktop": {
+    "hotkey": "Alt+Space",
+    "hotkeyMode": "toggle"
+  },
+  "transcription": {
+    "provider": "mock",
+    "model": "gpt-4o-mini-transcribe"
+  },
+  "adapters": {
+    "codex": {
+      "sandbox": "workspace-write",
+      "approvalPolicy": "never",
+      "json": false,
+      "timeoutMs": 1800000
+    },
+    "claude": {
+      "permissionMode": "dontAsk",
+      "outputFormat": "json",
+      "timeoutMs": 1800000
+    }
+  },
   "commands": {
     "test": "pnpm test",
     "build": "",

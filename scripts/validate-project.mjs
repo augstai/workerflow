@@ -10,6 +10,12 @@ const requiredFiles = [
   "pnpm-workspace.yaml",
   "apps/cli/package.json",
   "apps/cli/bin/workerflow.js",
+  "apps/desktop/package.json",
+  "apps/desktop/src/main.mjs",
+  "apps/desktop/src/overlay.html",
+  "apps/desktop/src/overlay.css",
+  "apps/desktop/src/overlay.js",
+  "apps/desktop/src/preload.cjs",
   "packages/core/package.json",
   "packages/core/src/index.js"
 ];
@@ -23,6 +29,7 @@ if (missing.length) {
 
 JSON.parse(fs.readFileSync("package.json", "utf8"));
 JSON.parse(fs.readFileSync("apps/cli/package.json", "utf8"));
+JSON.parse(fs.readFileSync("apps/desktop/package.json", "utf8"));
 JSON.parse(fs.readFileSync("packages/core/package.json", "utf8"));
 
 console.log("Project metadata looks good.");

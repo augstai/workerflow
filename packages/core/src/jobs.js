@@ -5,9 +5,22 @@ import crypto from "node:crypto";
 
 const STORE_DIR = path.join(os.homedir(), ".workerflow");
 const STORE_FILE = path.join(STORE_DIR, "jobs.json");
+const JOBS_DIR = path.join(STORE_DIR, "jobs");
+
+export function workerflowHome() {
+  return STORE_DIR;
+}
+
+export function jobArtifactsDir(jobId) {
+  return path.join(JOBS_DIR, jobId);
+}
 
 export function listJobs() {
   return readStore().jobs;
+}
+
+export function getJob(id) {
+  return readStore().jobs.find((job) => job.id === id) ?? null;
 }
 
 export function createJob({ task, repoRoot, branch, agent, prompt }) {
@@ -22,10 +35,30 @@ export function createJob({ task, repoRoot, branch, agent, prompt }) {
     branch,
     agent,
     prompt,
+    artifactsDir: "",
     createdAt: new Date().toISOString()
   };
+  record.artifactsDir = jobArtifactsDir(record.id);
 
   store.jobs.unshift(record);
+  writeStore(store);
+  fs.mkdirSync(record.artifactsDir, { recursive: true });
+  return record;
+}
+
+export function updateJob(id, patch) {
+  const store = readStore();
+  const index = store.jobs.findIndex((job) => job.id === id);
+  if (index === -1) {
+    throw new Error(`Unknown Workerflow job: ${id}`);
+  }
+
+  const record = {
+    ...store.jobs[index],
+    ...patch,
+    updatedAt: new Date().toISOString()
+  };
+  store.jobs[index] = record;
   writeStore(store);
   return record;
 }

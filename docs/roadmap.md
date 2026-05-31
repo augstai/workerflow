@@ -15,10 +15,9 @@
 - adapter interface
 - Codex CLI adapter
 - Claude Code adapter
-- Aider adapter
-- custom command adapter
 - worktree creation
 - job logs and result files
+- CLI doctor/run/job inspection
 
 ## v0.3: Desktop Shell
 
@@ -28,6 +27,7 @@
 - push-to-talk overlay
 - local notifications
 - job list UI
+- native macOS helper for hold-to-talk
 
 ## v0.4: Voice Pipeline
 
@@ -49,6 +49,8 @@
 ## Later
 
 - local transcription
+- Aider adapter
+- custom command adapter
 - VS Code/Cursor integration
 - GitHub issue/PR draft flows
 - team policy configs

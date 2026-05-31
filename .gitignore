@@ -6,6 +6,7 @@ coverage/
 .turbo/
 .cache/
 *.log
+apps/desktop/native/build/
 
 # Workerflow local state
 .workerflow/jobs/

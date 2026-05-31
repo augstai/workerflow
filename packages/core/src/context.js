@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { gitText } from "./git.js";
 
 export function captureRepoContext(cwd) {
-  const repoRoot = git(["rev-parse", "--show-toplevel"], cwd) || cwd;
-  const branch = git(["branch", "--show-current"], repoRoot);
-  const status = git(["status", "--short"], repoRoot);
-  const diffStat = git(["diff", "--stat"], repoRoot);
+  const repoRoot = gitText(["rev-parse", "--show-toplevel"], cwd) || cwd;
+  const branch = gitText(["branch", "--show-current"], repoRoot);
+  const status = gitText(["status", "--short"], repoRoot);
+  const diffStat = gitText(["diff", "--stat"], repoRoot);
+  const head = gitText(["rev-parse", "--short", "HEAD"], repoRoot);
   const changedFiles = status
     ? status
         .split("\n")
@@ -17,6 +18,7 @@ export function captureRepoContext(cwd) {
   return {
     repoRoot,
     branch,
+    head,
     changedFiles,
     diffStat,
     packageManager: detectPackageManager(repoRoot),
@@ -46,18 +48,4 @@ function detectProjectFiles(repoRoot) {
 
 function exists(repoRoot, file) {
   return fs.existsSync(path.join(repoRoot, file));
-}
-
-function git(args, cwd) {
-  const result = spawnSync("git", args, {
-    cwd,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"]
-  });
-
-  if (result.status !== 0) {
-    return "";
-  }
-
-  return result.stdout.trim();
 }

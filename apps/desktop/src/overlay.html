@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workerflow</title>
+    <link rel="stylesheet" href="./overlay.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="pill">
+        <div class="pulse" id="pulse"></div>
+        <div>
+          <div class="status" id="status">Ready</div>
+          <div class="meta" id="meta">Codex · current repo</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <textarea id="task" spellcheck="false" placeholder="Say or type a task"></textarea>
+        <div class="result" id="result"></div>
+        <div class="toolbar">
+          <button id="agent" type="button">Codex</button>
+          <button id="stop" type="button">Stop</button>
+          <button id="run" type="button">Run</button>
+        </div>
+      </section>
+    </main>
+    <script src="./overlay.js"></script>
+  </body>
+</html>

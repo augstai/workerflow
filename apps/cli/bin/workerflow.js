@@ -2,11 +2,15 @@
 import {
   buildAgentPrompt,
   captureRepoContext,
+  commandExists,
   createJob,
   DEFAULT_CONFIG,
   formatSafetyRules,
+  getJob,
   listJobs,
   readProjectConfig,
+  runWorkerflowJob,
+  transcribeAudioFile,
   writeProjectConfig
 } from "../../../packages/core/src/index.js";
 
@@ -17,10 +21,16 @@ const rest = args.slice(1);
 try {
   if (command === "attach") {
     attach(rest);
+  } else if (command === "doctor") {
+    doctor();
+  } else if (command === "run") {
+    await run(rest);
   } else if (command === "status") {
     status();
   } else if (command === "prompt") {
     prompt(rest);
+  } else if (command === "transcribe") {
+    await transcribe(rest);
   } else if (command === "job") {
     job(rest);
   } else if (command === "safety") {
@@ -51,14 +61,93 @@ function attach(rawArgs) {
     worktree: flags.worktree ?? existing.worktree ?? DEFAULT_CONFIG.worktree
   };
 
+  if (flags.hotkey) {
+    config.desktop = {
+      ...config.desktop,
+      hotkey: flags.hotkey
+    };
+  }
+
+  if (flags.transcription) {
+    config.transcription = {
+      ...config.transcription,
+      provider: flags.transcription
+    };
+  }
+
   const { path } = writeProjectConfig(process.cwd(), config);
 
   console.log(`Workerflow attached: ${path}`);
   console.log(`Agent: ${config.agent}`);
+  console.log(`Hotkey: ${config.desktop.hotkey}`);
+  console.log(`Transcription: ${config.transcription.provider}`);
   console.log(`Worktree: ${config.worktree ? "enabled" : "disabled"}`);
   printCommand("test", config.commands.test);
   printCommand("build", config.commands.build);
   printCommand("lint", config.commands.lint);
+}
+
+function doctor() {
+  const { config, path } = readProjectConfig(process.cwd());
+  const context = captureRepoContext(process.cwd());
+  const checks = [
+    ["git", commandExists("git")],
+    ["codex", commandExists("codex")],
+    ["claude", commandExists("claude")]
+  ];
+
+  console.log("Workerflow doctor");
+  console.log("");
+  console.log(`Repo: ${context.repoRoot}`);
+  console.log(`Branch: ${context.branch || "unknown"}`);
+  console.log(`Config: ${path ?? "not attached"}`);
+  console.log(`Agent: ${(config ?? DEFAULT_CONFIG).agent}`);
+  console.log(`Hotkey: ${(config ?? DEFAULT_CONFIG).desktop.hotkey}`);
+  console.log("");
+
+  for (const [name, result] of checks) {
+    console.log(`${result.ok ? "ok" : "missing"}  ${name}${result.path ? `  ${result.path}` : ""}`);
+  }
+
+  const activeConfig = config ?? DEFAULT_CONFIG;
+  console.log("");
+  printCommand("test", activeConfig.commands?.test);
+  printCommand("build", activeConfig.commands?.build);
+  printCommand("lint", activeConfig.commands?.lint);
+}
+
+async function run(rawArgs) {
+  const flags = parseFlags(rawArgs);
+  const task = rawArgs.filter((value, index) => {
+    if (!value.startsWith("--")) {
+      return rawArgs[index - 1] !== "--agent";
+    }
+    return false;
+  }).join(" ").trim();
+
+  if (!task) {
+    fail("Usage: workerflow run [--agent codex|claude] [--dry-run] <task>");
+  }
+
+  const job = await runWorkerflowJob({
+    task,
+    cwd: process.cwd(),
+    agent: flags.agent,
+    dryRun: Boolean(flags["dry-run"])
+  });
+
+  console.log(`Job: ${job.id}`);
+  console.log(`Status: ${job.status}`);
+  console.log(`Agent: ${job.agent}`);
+  if (job.workspaceDir) {
+    console.log(`Workspace: ${job.workspaceDir}`);
+  }
+  if (job.summary) {
+    console.log(`Summary: ${job.summary}`);
+  }
+  if (job.artifactsDir) {
+    console.log(`Artifacts: ${job.artifactsDir}`);
+  }
 }
 
 function status() {
@@ -77,11 +166,29 @@ function status() {
   if (config) {
     console.log("");
     console.log(`Agent: ${config.agent}`);
+    console.log(`Hotkey: ${config.desktop?.hotkey ?? DEFAULT_CONFIG.desktop.hotkey}`);
+    console.log(`Transcription: ${config.transcription?.provider ?? DEFAULT_CONFIG.transcription.provider}`);
     console.log(`Worktree: ${config.worktree ? "enabled" : "disabled"}`);
     printCommand("test", config.commands?.test);
     printCommand("build", config.commands?.build);
     printCommand("lint", config.commands?.lint);
   }
+}
+
+async function transcribe(rawArgs) {
+  const filePath = rawArgs[0];
+  if (!filePath) {
+    fail("Usage: workerflow transcribe <audio-file>");
+  }
+
+  const { config } = readProjectConfig(process.cwd());
+  const result = await transcribeAudioFile({
+    filePath,
+    config: config ?? DEFAULT_CONFIG,
+    prompt: "Developer voice command for a coding-agent task."
+  });
+
+  console.log(result.cleaned || result.transcript);
 }
 
 function prompt(rawArgs) {
@@ -116,6 +223,21 @@ function job(rawArgs) {
     for (const item of jobs) {
       console.log(`${item.id}  ${item.status}  ${item.task}`);
     }
+    return;
+  }
+
+  if (subcommand === "show") {
+    const id = subArgs[0];
+    if (!id) {
+      fail("Usage: workerflow job show <job-id>");
+    }
+
+    const record = getJob(id);
+    if (!record) {
+      fail(`Unknown job: ${id}`);
+    }
+
+    console.log(JSON.stringify(record, null, 2));
     return;
   }
 
@@ -156,9 +278,13 @@ function help() {
 
 Usage:
   workerflow attach [--agent codex] [--test "pnpm test"] [--build "..."] [--lint "..."] [--no-worktree]
+  workerflow doctor
   workerflow status
   workerflow prompt <task>
+  workerflow transcribe <audio-file>
+  workerflow run [--agent codex|claude] [--dry-run] <task>
   workerflow job list
+  workerflow job show <job-id>
   workerflow job create <task>
   workerflow safety
 `);

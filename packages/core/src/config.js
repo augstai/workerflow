@@ -7,6 +7,27 @@ export const DEFAULT_CONFIG = Object.freeze({
   schemaVersion: 1,
   agent: "codex",
   worktree: true,
+  desktop: {
+    hotkey: "Alt+Space",
+    hotkeyMode: "toggle"
+  },
+  transcription: {
+    provider: "mock",
+    model: "gpt-4o-mini-transcribe"
+  },
+  adapters: {
+    codex: {
+      sandbox: "workspace-write",
+      approvalPolicy: "never",
+      json: false,
+      timeoutMs: 1800000
+    },
+    claude: {
+      permissionMode: "dontAsk",
+      outputFormat: "json",
+      timeoutMs: 1800000
+    }
+  },
   commands: {
     test: "",
     build: "",
@@ -42,9 +63,31 @@ export function readProjectConfig(cwd) {
 
 export function writeProjectConfig(cwd, config) {
   const configPath = projectConfigPath(cwd);
+  const extraAdapters = Object.fromEntries(
+    Object.entries(config.adapters ?? {}).filter(([name]) => !["codex", "claude"].includes(name))
+  );
   const normalized = {
     ...DEFAULT_CONFIG,
     ...config,
+    desktop: {
+      ...DEFAULT_CONFIG.desktop,
+      ...(config.desktop ?? {})
+    },
+    transcription: {
+      ...DEFAULT_CONFIG.transcription,
+      ...(config.transcription ?? {})
+    },
+    adapters: {
+      ...extraAdapters,
+      codex: {
+        ...DEFAULT_CONFIG.adapters.codex,
+        ...(config.adapters?.codex ?? {})
+      },
+      claude: {
+        ...DEFAULT_CONFIG.adapters.claude,
+        ...(config.adapters?.claude ?? {})
+      }
+    },
     commands: {
       ...DEFAULT_CONFIG.commands,
       ...(config.commands ?? {})

@@ -35,7 +35,9 @@ Requirements:
 pnpm install
 pnpm workerflow attach --agent codex --test "pnpm test"
 pnpm workerflow status
+pnpm workerflow doctor
 pnpm workerflow prompt "Fix the failing auth test in a new worktree and run tests."
+pnpm workerflow run --dry-run "Fix the failing auth test in a new worktree and run tests."
 ```
 
 The `attach` command writes `.workerflow.json` in the current repository. That file tells Workerflow which agent to use, which commands verify the repo, and which paths should require extra care.
@@ -74,6 +76,22 @@ The short version:
 - v0.5: diff viewer, notifications, demo-ready flow
 
 See [docs/roadmap.md](docs/roadmap.md).
+
+## Desktop App
+
+Run the development desktop shell:
+
+```bash
+pnpm dev:desktop
+```
+
+The tray app defaults to `Alt+Space`, which maps to Option+Space on macOS keyboards. The first implementation supports a reliable toggle hotkey through Electron. True hold-to-talk mode is wired for a native macOS helper and requires Accessibility permission:
+
+```bash
+apps/desktop/native/build-macos-hotkey-helper.sh
+```
+
+Then set `"hotkeyMode": "hold"` in `~/.workerflow/settings.json`.
 
 ## Open Source Sustainability
 

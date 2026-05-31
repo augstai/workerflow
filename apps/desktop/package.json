@@ -1,0 +1,14 @@
+{
+  "name": "@workerflow/desktop",
+  "version": "0.1.0",
+  "description": "Desktop shell for Workerflow.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/main.mjs",
+  "scripts": {
+    "dev": "electron src/main.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

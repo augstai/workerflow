@@ -17,6 +17,10 @@ const requiredFiles = [
   "apps/desktop/renderer/index.html",
   "apps/desktop/renderer/src/main.tsx",
   "apps/desktop/renderer/src/styles.css",
+  "apps/mac/Package.swift",
+  "apps/mac/Sources/WorkerflowMac/WorkerflowMacApp.swift",
+  "apps/mac/Sources/WorkerflowMacCore/WorkerflowAppDelegate.swift",
+  "apps/mac/NOTICE.md",
   "packages/core/package.json",
   "packages/core/src/index.js"
 ];

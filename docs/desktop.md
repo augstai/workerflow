@@ -1,8 +1,18 @@
 # Desktop App
 
-Workerflow's desktop app is a Mac-first tray app with a compact React/Vite overlay.
+Workerflow's desktop app is moving to a native Swift/AppKit Mac shell. The Electron shell remains available as a prototype fallback while native packaging and review surfaces mature.
 
 ## Development
+
+Native Mac shell:
+
+```bash
+pnpm dev:mac
+pnpm build:mac
+pnpm test:mac
+```
+
+Electron prototype:
 
 ```bash
 pnpm dev:desktop
@@ -49,7 +59,9 @@ The adapted component files are kept under `apps/desktop/renderer/src/components
 
 ## Hold-To-Talk
 
-Electron's built-in global shortcut API detects hotkey activation but does not expose global key release. True hold-to-talk mode uses the native macOS helper in `apps/desktop/native`.
+The native shell uses a listen-only AppKit/CoreGraphics event tap for true hold-to-talk. It defaults to Option+Space and can be switched to Control+Option, Control+Option+Space, or Shift+Control+Space in the menu-bar panel.
+
+Electron's built-in global shortcut API detects hotkey activation but does not expose global key release. True hold-to-talk mode in the Electron prototype uses the native macOS helper in `apps/desktop/native`.
 
 Build it with:
 

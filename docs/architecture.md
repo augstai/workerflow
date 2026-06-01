@@ -12,9 +12,11 @@ The desktop shell is a Mac-first tray app with:
 - job list and result panel
 - approval prompts for risky actions
 
-Electron hosts the tray, global shortcut, notifications, local IPC, and process management. The overlay renderer uses React, Vite, Tailwind, and adapted ElevenLabs UI voice components so the product surface can stay compact and polished while the native Mac shell matures.
+The preferred Mac shell lives in `apps/mac`. It uses SwiftUI/AppKit for the menu-bar app, non-activating panels, native permission prompts, microphone capture, and listen-only push-to-talk monitoring.
 
-The current Mac-specific layer includes a Swift hotkey helper for true hold-to-talk release detection. Electron's shortcut path remains useful as a reliable toggle fallback.
+The Node core remains the source of truth for repo context, transcription providers, job creation, worktrees, and agent adapters. The native shell bridges into it through the `workerflow` CLI.
+
+The Electron shell remains as a prototype fallback while the native shell reaches feature parity.
 
 ## Voice Pipeline
 

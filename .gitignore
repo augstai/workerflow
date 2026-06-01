@@ -2,11 +2,13 @@ node_modules/
 .DS_Store
 dist/
 build/
+.build/
 coverage/
 .turbo/
 .cache/
 *.log
 apps/desktop/native/build/
+apps/mac/.build/
 
 # Workerflow local state
 .workerflow/jobs/

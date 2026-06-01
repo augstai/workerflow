@@ -21,11 +21,13 @@
 
 ## v0.3: Desktop Shell
 
-- Electron app
+- native Swift/AppKit menu-bar app
+- Electron prototype fallback
 - menu bar state
-- native macOS hotkey helper as preferred hold-to-talk path
+- native macOS hold-to-talk monitor as preferred path
 - listen-only hotkey transition handling with repeat suppression
-- compact command pill and separate review/result surface
+- compact command pill
+- separate review/result surface
 - permission setup and recovery panel
 - local notifications
 - job list UI

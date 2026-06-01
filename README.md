@@ -21,11 +21,12 @@ This repository is at the project foundation stage. The current code provides:
 - structured agent prompt generation
 - Codex and Claude CLI adapter scaffolding
 - an Electron tray app with a React/Vite hotkey overlay
+- a native Swift/AppKit menu-bar shell scaffold
 - a compact recording pill built with adapted ElevenLabs UI components
 - configurable transcription providers
 - OSS docs, issue templates, and CI
 
-Native macOS hold-to-talk hardening, the diff review surface, and broader adapter coverage are still active work.
+Native macOS packaging, the diff review surface, and broader adapter coverage are still active work.
 
 ## Quick Start
 
@@ -86,7 +87,20 @@ See [docs/roadmap.md](docs/roadmap.md).
 
 ## Desktop App
 
-Run the development desktop shell:
+Run the native Mac shell:
+
+```bash
+pnpm dev:mac
+```
+
+Build and test the native shell:
+
+```bash
+pnpm build:mac
+pnpm test:mac
+```
+
+Run the Electron prototype shell:
 
 ```bash
 pnpm dev:desktop
@@ -105,6 +119,8 @@ apps/desktop/native/build-macos-hotkey-helper.sh
 ```
 
 Then set `"hotkeyMode": "hold"` in `~/.workerflow/settings.json`.
+
+See [docs/native-mac.md](docs/native-mac.md) for the Swift/AppKit shell.
 
 ## Open Source Sustainability
 

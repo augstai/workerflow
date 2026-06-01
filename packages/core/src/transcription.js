@@ -114,7 +114,10 @@ async function transcribeWithOpenAICompatible({ filePath, config, prompt }) {
     throw new Error(payload.error?.message ?? `Transcription failed with status ${response.status}`);
   }
 
-  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
+  const transcript = normalizeTranscript({
+    transcript: typeof payload === "string" ? payload : payload.text ?? "",
+    prompt
+  });
   return {
     provider: transcriptionConfig.provider,
     transcript,
@@ -168,7 +171,10 @@ async function transcribeWithAzureOpenAI({ filePath, config, prompt }) {
     throw new Error(payload.error?.message ?? `Azure OpenAI transcription failed with status ${response.status}`);
   }
 
-  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
+  const transcript = normalizeTranscript({
+    transcript: typeof payload === "string" ? payload : payload.text ?? "",
+    prompt
+  });
   return {
     provider: transcriptionConfig.provider,
     transcript,
@@ -206,7 +212,9 @@ async function transcribeWithElevenLabs({ filePath, config }) {
     throw new Error(payload.detail?.message ?? payload.error?.message ?? `ElevenLabs transcription failed with status ${response.status}`);
   }
 
-  const transcript = typeof payload === "string" ? payload : payload.text ?? "";
+  const transcript = normalizeTranscript({
+    transcript: typeof payload === "string" ? payload : payload.text ?? ""
+  });
   return {
     provider: transcriptionConfig.provider,
     transcript,
@@ -221,6 +229,19 @@ async function readResponsePayload(response) {
     return response.json();
   }
   return response.text();
+}
+
+function normalizeTranscript({ transcript, prompt }) {
+  const normalized = String(transcript ?? "").trim();
+  if (!normalized) {
+    throw new Error("No speech detected. Hold the hotkey while speaking, then release.");
+  }
+
+  if (prompt && normalized.toLowerCase() === prompt.trim().toLowerCase()) {
+    throw new Error("No speech detected. Hold the hotkey while speaking, then release.");
+  }
+
+  return normalized;
 }
 
 function guessMimeType(filePath) {

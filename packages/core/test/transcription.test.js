@@ -69,6 +69,40 @@ test("azure transcription can read endpoint and deployment from env", async () =
   }
 });
 
+test("provider transcription rejects prompt echo on empty audio", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.OPENAI_API_KEY;
+  const prompt = "Developer voice command for a coding-agent task.";
+
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => Response.json({ text: prompt });
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workerflow-transcribe-"));
+  const filePath = path.join(dir, "sample.webm");
+  fs.writeFileSync(filePath, "mock");
+
+  try {
+    await assert.rejects(
+      transcribeAudioFile({
+        filePath,
+        config: {
+          ...DEFAULT_CONFIG,
+          transcription: {
+            ...DEFAULT_CONFIG.transcription,
+            provider: "openai-compatible",
+            baseUrl: "https://example.test/v1"
+          }
+        },
+        prompt
+      }),
+      /No speech detected/
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("OPENAI_API_KEY", previousKey);
+  }
+});
+
 function restoreEnv(key, value) {
   if (value === undefined) {
     delete process.env[key];

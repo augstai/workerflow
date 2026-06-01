@@ -3,6 +3,7 @@ import SwiftUI
 
 struct WorkerflowPanelView: View {
     @ObservedObject var companionManager: WorkerflowCompanionManager
+    @State private var isResultExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,15 +34,8 @@ struct WorkerflowPanelView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
             }
-
-            settingsSection
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-
-            footer
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
         }
+        .padding(.bottom, 16)
         .background(panelBackground)
         .clipShape(RoundedRectangle(cornerRadius: WFDesign.Radius.panel, style: .continuous))
         .overlay(
@@ -68,6 +62,7 @@ struct WorkerflowPanelView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(WFDesign.Colors.textMuted)
 
+            settingsMenu
             supportMenu
 
             Button {
@@ -83,6 +78,54 @@ struct WorkerflowPanelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+
+    private var settingsMenu: some View {
+        Menu {
+            Section("Agent") {
+                agentMenuButton("codex", title: "Codex", systemImage: "terminal")
+                agentMenuButton("claude", title: "Claude", systemImage: "sparkles")
+            }
+
+            Section("Hotkey") {
+                ForEach(WorkerflowShortcutOption.allCases) { option in
+                    Button {
+                        companionManager.shortcutOption = option
+                    } label: {
+                        Label(
+                            option.displayText,
+                            systemImage: companionManager.shortcutOption == option ? "checkmark" : "keyboard"
+                        )
+                    }
+                }
+            }
+
+            Divider()
+
+            Button {
+                companionManager.refreshStatus()
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(WFDesign.Colors.textFaint)
+                .frame(width: 22, height: 22)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private func agentMenuButton(_ agent: String, title: String, systemImage: String) -> some View {
+        Button {
+            companionManager.setSelectedAgent(agent)
+        } label: {
+            Label(
+                title,
+                systemImage: companionManager.selectedAgent == agent ? "checkmark" : systemImage
+            )
+        }
     }
 
     private var supportMenu: some View {
@@ -109,31 +152,78 @@ struct WorkerflowPanelView: View {
     }
 
     private var readySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                keyCaps
-                Spacer()
-                waveformPreview
-            }
-
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
                 Button {
-                    companionManager.beginCapture()
+                    performPrimaryAction()
                 } label: {
-                    Label("Speak", systemImage: "mic.fill")
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(primaryActionTint.opacity(0.18))
+                                .frame(width: 34, height: 34)
+
+                            Image(systemName: primaryActionIcon)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(primaryActionTint)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(primaryActionTitle)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(WFDesign.Colors.text)
+
+                            Text(companionManager.message)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(WFDesign.Colors.textMuted)
+                                .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if primaryActionShowsProgress {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(WFDesign.Colors.accent)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(WFDesign.Colors.panelElevated)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(WFDesign.Colors.border, lineWidth: 0.8)
+                    )
                 }
-                .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                .buttonStyle(.plain)
+                .disabled(primaryActionDisabled)
 
                 if companionManager.voiceState == .listening {
                     Button {
                         companionManager.finishCapture()
                     } label: {
-                        Label("Stop", systemImage: "stop.fill")
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(WFDesign.Colors.text)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(WFDesign.Colors.control)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(WFDesign.Colors.border, lineWidth: 0.8)
+                            )
                     }
-                    .buttonStyle(QuietButtonStyle())
+                    .buttonStyle(.plain)
                 }
+            }
 
-                Spacer()
+            if companionManager.voiceState == .listening {
+                waveformPreview
             }
         }
     }
@@ -267,111 +357,55 @@ struct WorkerflowPanelView: View {
     }
 
     private var outputSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(companionManager.voiceState == .failed ? "ERROR" : "RESULT")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundColor(WFDesign.Colors.textFaint)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 9) {
+                Image(systemName: resultIcon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(resultColor)
 
-            Text(companionManager.commandOutput)
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundColor(WFDesign.Colors.textMuted)
-                .lineLimit(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: WFDesign.Radius.control, style: .continuous)
-                        .fill(Color.black.opacity(0.24))
-                )
-        }
-    }
-
-    private var settingsSection: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("Agent")
+                Text(companionManager.message)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WFDesign.Colors.textMuted)
-                Spacer()
-                segmentedAgentPicker
-            }
+                    .lineLimit(2)
 
-            HStack {
-                Text("Hotkey")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(WFDesign.Colors.textMuted)
                 Spacer()
-                Picker("", selection: $companionManager.shortcutOption) {
-                    ForEach(WorkerflowShortcutOption.allCases) { option in
-                        Text(option.displayText).tag(option)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        isResultExpanded.toggle()
                     }
+                } label: {
+                    Image(systemName: isResultExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(WFDesign.Colors.textFaint)
+                        .frame(width: 24, height: 24)
                 }
-                .labelsHidden()
-                .frame(width: 172)
+                .buttonStyle(.plain)
+            }
+
+            if isResultExpanded {
+                Text(companionManager.commandOutput)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundColor(WFDesign.Colors.textMuted)
+                    .lineLimit(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: WFDesign.Radius.control, style: .continuous)
+                            .fill(Color.black.opacity(0.24))
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-    }
-
-    private var segmentedAgentPicker: some View {
-        HStack(spacing: 2) {
-            agentButton("codex", label: "Codex")
-            agentButton("claude", label: "Claude")
-        }
-        .padding(2)
         .background(
             RoundedRectangle(cornerRadius: WFDesign.Radius.control, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(WFDesign.Colors.panelElevated.opacity(0.72))
         )
-    }
-
-    private func agentButton(_ agent: String, label: String) -> some View {
-        Button {
-            companionManager.setSelectedAgent(agent)
-        } label: {
-            Text(label)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(companionManager.selectedAgent == agent ? WFDesign.Colors.text : WFDesign.Colors.textMuted)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(companionManager.selectedAgent == agent ? Color.white.opacity(0.12) : Color.clear)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            Label(companionManager.repoDisplayName, systemImage: "folder")
-                .lineLimit(1)
-            Text(companionManager.status.branch.isEmpty ? "unknown" : companionManager.status.branch)
-                .lineLimit(1)
-            Spacer()
-            Text("\(companionManager.status.changedFiles) changed")
-                .lineLimit(1)
-        }
-        .font(.system(size: 11, weight: .medium))
-        .foregroundColor(WFDesign.Colors.textFaint)
-    }
-
-    private var keyCaps: some View {
-        HStack(spacing: 5) {
-            ForEach(companionManager.shortcutOption.keyCaps, id: \.self) { label in
-                Text(label)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundColor(WFDesign.Colors.textMuted)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.white.opacity(0.07))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(WFDesign.Colors.border, lineWidth: 0.8)
-                    )
-            }
-        }
+        .overlay(
+            RoundedRectangle(cornerRadius: WFDesign.Radius.control, style: .continuous)
+                .stroke(WFDesign.Colors.border, lineWidth: 0.8)
+        )
+        .padding(.bottom, 1)
     }
 
     private var waveformPreview: some View {
@@ -407,5 +441,71 @@ struct WorkerflowPanelView: View {
 
     private var waveformColor: Color {
         companionManager.voiceState == .failed ? WFDesign.Colors.danger : WFDesign.Colors.accent
+    }
+
+    private var primaryActionTitle: String {
+        switch companionManager.voiceState {
+        case .idle, .succeeded:
+            return "Speak"
+        case .listening:
+            return "Listening"
+        case .transcribing:
+            return "Transcribing"
+        case .review:
+            return "Speak again"
+        case .running:
+            return "Working"
+        case .failed:
+            return "Try again"
+        }
+    }
+
+    private var primaryActionIcon: String {
+        switch companionManager.voiceState {
+        case .transcribing, .running:
+            return "waveform"
+        case .failed:
+            return "arrow.counterclockwise"
+        default:
+            return "mic.fill"
+        }
+    }
+
+    private var primaryActionTint: Color {
+        switch companionManager.voiceState {
+        case .failed:
+            return WFDesign.Colors.danger
+        case .succeeded:
+            return WFDesign.Colors.success
+        default:
+            return WFDesign.Colors.accent
+        }
+    }
+
+    private var primaryActionDisabled: Bool {
+        companionManager.voiceState == .transcribing || companionManager.voiceState == .running
+    }
+
+    private var primaryActionShowsProgress: Bool {
+        companionManager.voiceState == .transcribing || companionManager.voiceState == .running
+    }
+
+    private var resultIcon: String {
+        companionManager.voiceState == .failed ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+    }
+
+    private var resultColor: Color {
+        companionManager.voiceState == .failed ? WFDesign.Colors.danger : WFDesign.Colors.success
+    }
+
+    private func performPrimaryAction() {
+        switch companionManager.voiceState {
+        case .listening:
+            companionManager.finishCapture()
+        case .transcribing, .running:
+            break
+        default:
+            companionManager.beginCapture()
+        }
     }
 }

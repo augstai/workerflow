@@ -198,6 +198,7 @@ async function run(rawArgs) {
 function status() {
   const { config, path } = readProjectConfig(process.cwd());
   const context = captureRepoContext(process.cwd());
+  const effectiveConfig = config ?? DEFAULT_CONFIG;
 
   console.log("Workerflow status");
   console.log("");
@@ -210,13 +211,13 @@ function status() {
 
   if (config) {
     console.log("");
-    console.log(`Agent: ${config.agent}`);
-    console.log(`Hotkey: ${config.desktop?.hotkey ?? DEFAULT_CONFIG.desktop.hotkey}`);
-    console.log(`Transcription: ${config.transcription?.provider ?? DEFAULT_CONFIG.transcription.provider}`);
-    console.log(`Worktree: ${config.worktree ? "enabled" : "disabled"}`);
-    printCommand("test", config.commands?.test);
-    printCommand("build", config.commands?.build);
-    printCommand("lint", config.commands?.lint);
+    console.log(`Agent: ${effectiveConfig.agent}`);
+    console.log(`Hotkey: ${effectiveConfig.desktop?.hotkey ?? DEFAULT_CONFIG.desktop.hotkey}`);
+    console.log(`Transcription: ${effectiveTranscriptionProvider(effectiveConfig)}`);
+    console.log(`Worktree: ${effectiveConfig.worktree ? "enabled" : "disabled"}`);
+    printCommand("test", effectiveConfig.commands?.test);
+    printCommand("build", effectiveConfig.commands?.build);
+    printCommand("lint", effectiveConfig.commands?.lint);
   }
 }
 
@@ -229,11 +230,16 @@ async function transcribe(rawArgs) {
   const { config } = readProjectConfig(process.cwd());
   const result = await transcribeAudioFile({
     filePath,
-    config: config ?? DEFAULT_CONFIG,
-    prompt: "Developer voice command for a coding-agent task."
+    config: config ?? DEFAULT_CONFIG
   });
 
   console.log(result.cleaned || result.transcript);
+}
+
+function effectiveTranscriptionProvider(config) {
+  return process.env.WORKERFLOW_TRANSCRIPTION_PROVIDER
+    || config.transcription?.provider
+    || DEFAULT_CONFIG.transcription.provider;
 }
 
 function prompt(rawArgs) {

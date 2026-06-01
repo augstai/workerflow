@@ -79,8 +79,25 @@ final class WorkerflowBridge {
     }
 
     private func runWorkerflow(arguments: [String], timeout: TimeInterval) async throws -> WorkerflowCommandResult {
+        if let nodeURL = Self.findExecutable(named: "node") {
+            let cliURL = repoRoot
+                .appendingPathComponent("apps")
+                .appendingPathComponent("cli")
+                .appendingPathComponent("bin")
+                .appendingPathComponent("workerflow.js")
+
+            if FileManager.default.fileExists(atPath: cliURL.path) {
+                return try await Self.runProcess(
+                    executableURL: nodeURL,
+                    arguments: [cliURL.path] + arguments,
+                    currentDirectoryURL: repoRoot,
+                    timeout: timeout
+                )
+            }
+        }
+
         guard let pnpmURL = Self.findExecutable(named: "pnpm") else {
-            throw WorkerflowBridgeError.missingExecutable("pnpm")
+            throw WorkerflowBridgeError.missingExecutable("node or pnpm")
         }
 
         return try await Self.runProcess(

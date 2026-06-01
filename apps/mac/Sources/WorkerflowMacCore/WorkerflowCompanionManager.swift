@@ -37,7 +37,7 @@ enum WorkerflowVoiceState: String {
 final class WorkerflowCompanionManager: ObservableObject {
     @Published private(set) var voiceState: WorkerflowVoiceState = .idle
     @Published private(set) var transcript = ""
-    @Published private(set) var message = "Workerflow is ready."
+    @Published private(set) var message = "Ready."
     @Published private(set) var commandOutput = ""
     @Published private(set) var hasAccessibilityPermission = false
     @Published private(set) var hasMicrophonePermission = false
@@ -180,7 +180,7 @@ final class WorkerflowCompanionManager: ObservableObject {
         AppLog.info("clear transcript", category: "manager")
         transcript = ""
         commandOutput = ""
-        message = "Workerflow is ready."
+        message = "Ready."
         voiceState = .idle
         voicePillOverlayManager.hide()
     }
@@ -198,7 +198,7 @@ final class WorkerflowCompanionManager: ObservableObject {
 
         AppLog.info("run reviewed task agent=\(selectedAgent) taskLength=\(task.count)", category: "manager")
         voiceState = .running
-        message = "Running \(selectedAgent)."
+        message = "Working."
         commandOutput = ""
         voicePillOverlayManager.show(manager: self)
 
@@ -212,7 +212,7 @@ final class WorkerflowCompanionManager: ObservableObject {
                 refreshStatus()
             } catch {
                 commandOutput = error.localizedDescription
-                message = "Workerflow run failed."
+                message = "Run failed."
                 voiceState = .failed
                 AppLog.error("run failed error=\(error.localizedDescription)", category: "manager")
             }
@@ -223,7 +223,7 @@ final class WorkerflowCompanionManager: ObservableObject {
 
     func beginCapture() {
         guard allRequiredPermissionsGranted else {
-            message = "Grant microphone and accessibility permissions."
+            message = "Permissions needed."
             voiceState = .failed
             AppLog.error("capture blocked missing permissions accessibility=\(hasAccessibilityPermission) microphone=\(hasMicrophonePermission)", category: "manager")
             return
@@ -364,7 +364,7 @@ final class WorkerflowCompanionManager: ObservableObject {
 
         return lines.last(where: { $0.hasPrefix("Summary:") })
             ?? lines.first
-            ?? "Workerflow run finished."
+            ?? "Done."
     }
 
     private func logPermissionSnapshotIfChanged() {

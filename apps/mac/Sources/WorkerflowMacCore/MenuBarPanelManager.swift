@@ -47,7 +47,7 @@ final class MenuBarPanelManager: NSObject {
 
     func showPanelOnLaunch() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.showPanel()
+            self.showPanel(preferCentered: true)
         }
     }
 
@@ -65,20 +65,22 @@ final class MenuBarPanelManager: NSObject {
         if panel?.isVisible == true {
             hidePanel()
         } else {
-            showPanel()
+            showPanel(preferCentered: false)
         }
     }
 
-    private func showPanel() {
+    private func showPanel(preferCentered: Bool) {
         if panel == nil {
             createPanel()
         }
 
-        positionPanelBelowStatusItem()
+        positionPanelBelowStatusItem(preferCentered: preferCentered)
         panel?.makeKeyAndOrderFront(nil)
         panel?.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
         installClickOutsideMonitor()
         companionManager.refreshStatus()
+        AppLog.info("panel shown", category: "ui")
     }
 
     private func hidePanel() {
@@ -103,13 +105,13 @@ final class MenuBarPanelManager: NSObject {
         )
 
         panel.isFloatingPanel = true
-        panel.level = .floating
+        panel.level = .screenSaver
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.isExcludedFromWindowsMenu = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace, .transient]
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.contentView = hostingView
@@ -117,18 +119,40 @@ final class MenuBarPanelManager: NSObject {
         self.panel = panel
     }
 
-    private func positionPanelBelowStatusItem() {
-        guard let panel, let buttonWindow = statusItem?.button?.window else { return }
+    private func positionPanelBelowStatusItem(preferCentered: Bool) {
+        guard let panel else { return }
 
         let fittingSize = panel.contentView?.fittingSize ?? CGSize(width: panelWidth, height: fallbackPanelHeight)
         let height = min(max(fittingSize.height, 360), 620)
-        let x = buttonWindow.frame.midX - panelWidth / 2
-        let y = buttonWindow.frame.minY - height - 6
+        let anchorWindow = preferCentered ? nil : statusItem?.button?.window
+        let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+        let screenFrame = (preferCentered ? mouseScreen : anchorWindow?.screen)
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        let visibleFrame = screenFrame?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: panelWidth, height: fallbackPanelHeight)
 
-        panel.setFrame(
-            NSRect(x: x, y: y, width: panelWidth, height: height),
-            display: true
+        let anchoredX = anchorWindow.map { $0.frame.midX - panelWidth / 2 }
+        let anchoredY = anchorWindow.map { $0.frame.minY - height - 6 }
+
+        let unclampedX = anchoredX ?? (visibleFrame.midX - panelWidth / 2)
+        let clampedX = min(
+            max(unclampedX, visibleFrame.minX + 8),
+            visibleFrame.maxX - panelWidth - 8
         )
+
+        let fallbackY = visibleFrame.maxY - height - (preferCentered ? 96 : 18)
+        let unclampedY = anchoredY.map { proposedY in
+            proposedY < visibleFrame.minY + 8 ? fallbackY : proposedY
+        } ?? fallbackY
+        let clampedY = min(
+            max(unclampedY, visibleFrame.minY + 8),
+            visibleFrame.maxY - height - 8
+        )
+
+        let frame = NSRect(x: clampedX, y: clampedY, width: panelWidth, height: height)
+        panel.setFrame(frame, display: true)
+        AppLog.info("panel frame x=\(Int(frame.minX)) y=\(Int(frame.minY)) w=\(Int(frame.width)) h=\(Int(frame.height))", category: "ui")
     }
 
     private func installClickOutsideMonitor() {

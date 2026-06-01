@@ -3,6 +3,8 @@ import Foundation
 
 let optionMask = CGEventFlags.maskAlternate
 let spaceKeyCode: Int64 = 49
+var eventTapPort: CFMachPort?
+var isHotkeyPressed = false
 
 func emit(_ type: String) {
   print("{\"type\":\"\(type)\"}")
@@ -11,18 +13,26 @@ func emit(_ type: String) {
 
 let callback: CGEventTapCallBack = { _, type, event, _ in
   if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+    if let eventTapPort {
+      CGEvent.tapEnable(tap: eventTapPort, enable: true)
+    }
     return Unmanaged.passUnretained(event)
   }
 
   let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
   let flags = event.flags
-  let isHotkey = keyCode == spaceKeyCode && flags.contains(optionMask)
+  let isSpaceEvent = keyCode == spaceKeyCode
+  let isOptionPressed = flags.contains(optionMask)
+  let isHotkey = isSpaceEvent && isOptionPressed
 
-  if isHotkey && type == .keyDown {
+  if isHotkey && type == .keyDown && !isHotkeyPressed {
+    isHotkeyPressed = true
     emit("hotkey-down")
   }
 
-  if isHotkey && type == .keyUp {
+  if (isSpaceEvent && type == .keyUp && isHotkeyPressed) ||
+    (type == .flagsChanged && !isOptionPressed && isHotkeyPressed) {
+    isHotkeyPressed = false
     emit("hotkey-up")
   }
 
@@ -37,7 +47,7 @@ let mask =
 guard let eventTap = CGEvent.tapCreate(
   tap: .cgSessionEventTap,
   place: .headInsertEventTap,
-  options: .defaultTap,
+  options: .listenOnly,
   eventsOfInterest: CGEventMask(mask),
   callback: callback,
   userInfo: nil
@@ -45,6 +55,8 @@ guard let eventTap = CGEvent.tapCreate(
   fputs("Workerflow could not create a macOS event tap. Grant Accessibility permission.\n", stderr)
   exit(1)
 }
+
+eventTapPort = eventTap
 
 let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)

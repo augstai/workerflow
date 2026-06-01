@@ -23,17 +23,19 @@
 
 - Electron app
 - menu bar state
-- global hotkey
-- push-to-talk overlay
+- native macOS hotkey helper as preferred hold-to-talk path
+- listen-only hotkey transition handling with repeat suppression
+- compact command pill and separate review/result surface
+- permission setup and recovery panel
 - local notifications
 - job list UI
-- native macOS helper for hold-to-talk
 
 ## v0.4: Voice Pipeline
 
 - microphone permission flow
 - transcription provider abstraction
 - standalone transcription test
+- real audio-level telemetry for recording waveform
 - command cleanup
 - dictation vs action classifier
 - compact risk confirmation

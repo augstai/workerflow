@@ -39,6 +39,8 @@ Copyright (c) 2026 Farza
 - Add a tiny local/hosted proxy option later for teams that do not want provider keys on every machine.
 - Maintain `AGENTS.md` as the repo-level source of truth for agent contributors.
 
+See [clicky-deep-dive.md](clicky-deep-dive.md) for the deeper subsystem-level inspection.
+
 ## Non-Goals
 
 - Do not clone Clicky's cursor companion, teacher persona, onboarding, or screen-pointing UX.

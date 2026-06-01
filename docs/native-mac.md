@@ -40,6 +40,56 @@ Optional:
 
 The app includes `Info.plist` and entitlements for packaging, but the current development command runs through SwiftPM. A signed `.app` bundle is the next packaging step.
 
+## Debugging
+
+The native shell writes persistent logs even when the terminal is not useful:
+
+```text
+~/Library/Logs/Workerflow/workerflow-mac.log
+```
+
+The menu-bar panel has two diagnostic buttons:
+
+- `Logs`: reveals the native Mac log in Finder.
+- `Bundle`: creates a redacted diagnostics bundle through `workerflow debug --bundle`.
+
+CLI diagnostics:
+
+```bash
+pnpm workerflow debug
+pnpm workerflow debug --bundle
+```
+
+Bundles are written under:
+
+```text
+~/.workerflow/diagnostics/
+```
+
+They include safe runtime metadata, recent job artifact indexes, env key presence, and the recent native app log. API key values, bearer tokens, and secret-looking fields are redacted before writing.
+
+Job-specific artifacts still live under:
+
+```text
+~/.workerflow/jobs/<job-id>/
+```
+
 ## Attribution
 
 The native shell adapts Mac app architecture patterns from Clicky by Farza, which is MIT licensed. Attribution lives in `apps/mac/NOTICE.md`.
+
+What is currently adapted:
+
+- menu-bar-only native host
+- compact non-activating panels
+- native permission recovery shape
+- listen-only push-to-talk event tap
+- central observable app state
+- dark compact visual language
+
+What is not copied yet:
+
+- cursor companion / mouse-following teaching overlay
+- screen-pointing coordinate system
+- screen capture pipeline
+- onboarding media, music, copy, assets, analytics, or hosted service endpoints

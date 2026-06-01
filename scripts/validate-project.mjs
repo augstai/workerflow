@@ -22,6 +22,7 @@ const requiredFiles = [
   "apps/mac/Sources/WorkerflowMacCore/WorkerflowAppDelegate.swift",
   "apps/mac/NOTICE.md",
   "packages/core/package.json",
+  "packages/core/src/diagnostics.js",
   "packages/core/src/index.js"
 ];
 

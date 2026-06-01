@@ -38,6 +38,10 @@ struct WorkerflowPanelView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
 
+            diagnosticsSection
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
             footer
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -283,6 +287,26 @@ struct WorkerflowPanelView: View {
                 .labelsHidden()
                 .frame(width: 172)
             }
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        HStack(spacing: 8) {
+            Button {
+                companionManager.openLogs()
+            } label: {
+                Label("Logs", systemImage: "doc.text.magnifyingglass")
+            }
+            .buttonStyle(QuietButtonStyle())
+
+            Button {
+                companionManager.createDiagnosticsBundle()
+            } label: {
+                Label("Bundle", systemImage: "shippingbox")
+            }
+            .buttonStyle(QuietButtonStyle())
+
+            Spacer()
         }
     }
 

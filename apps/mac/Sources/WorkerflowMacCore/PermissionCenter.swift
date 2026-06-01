@@ -28,12 +28,15 @@ enum PermissionCenter {
 
         switch destination {
         case .alreadyGranted:
+            AppLog.info("accessibility already granted", category: "permissions")
             return .alreadyGranted
         case .systemPrompt:
             attemptedAccessibilityPrompt = true
+            AppLog.info("request accessibility system prompt", category: "permissions")
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
         case .systemSettings:
+            AppLog.info("open accessibility settings", category: "permissions")
             openAccessibilitySettings()
         }
 
@@ -79,11 +82,14 @@ enum PermissionCenter {
 
         switch destination {
         case .alreadyGranted:
+            AppLog.info("screen recording already granted", category: "permissions")
             return .alreadyGranted
         case .systemPrompt:
             attemptedScreenRecordingPrompt = true
+            AppLog.info("request screen recording system prompt", category: "permissions")
             _ = CGRequestScreenCaptureAccess()
         case .systemSettings:
+            AppLog.info("open screen recording settings", category: "permissions")
             openScreenRecordingSettings()
         }
 
@@ -102,10 +108,12 @@ enum PermissionCenter {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
 
         if status == .authorized {
+            AppLog.info("microphone already granted", category: "permissions")
             return true
         }
 
         if status == .notDetermined {
+            AppLog.info("request microphone system prompt", category: "permissions")
             return await withCheckedContinuation { continuation in
                 AVCaptureDevice.requestAccess(for: .audio) { granted in
                     continuation.resume(returning: granted)
@@ -113,6 +121,7 @@ enum PermissionCenter {
             }
         }
 
+        AppLog.info("open microphone settings status=\(status.rawValue)", category: "permissions")
         openSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
         return false
     }

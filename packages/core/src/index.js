@@ -8,6 +8,13 @@ export {
 export { buildAdapterInvocation, normalizeAgent, SUPPORTED_AGENTS } from "./adapters.js";
 export { commandExists, runCommand, runShellCommand } from "./commands.js";
 export { captureRepoContext } from "./context.js";
+export {
+  createDiagnosticsBundle,
+  diagnosticsRoot,
+  nativeMacLogPath,
+  redactDiagnosticsText,
+  workerflowLogDir
+} from "./diagnostics.js";
 export { environmentFiles, loadEnvironment, parseEnvFile, workerflowEnvPath } from "./env.js";
 export { createJob, getJob, jobArtifactsDir, listJobs, updateJob, workerflowHome } from "./jobs.js";
 export { buildAgentPrompt } from "./prompt.js";

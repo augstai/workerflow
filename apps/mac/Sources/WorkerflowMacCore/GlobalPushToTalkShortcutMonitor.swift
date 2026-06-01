@@ -56,13 +56,13 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
             callback: callback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("Workerflow hotkey: could not create global event tap")
+            AppLog.error("could not create global event tap", category: "hotkey")
             return
         }
 
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0) else {
             CFMachPortInvalidate(eventTap)
-            print("Workerflow hotkey: could not create event tap run loop source")
+            AppLog.error("could not create event tap run loop source", category: "hotkey")
             return
         }
 
@@ -71,6 +71,7 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
 
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        AppLog.info("started shortcut=\(shortcutOption.compactText)", category: "hotkey")
     }
 
     func stop() {
@@ -88,6 +89,7 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
             CFMachPortInvalidate(eventTap)
             self.eventTap = nil
         }
+        AppLog.info("stopped", category: "hotkey")
     }
 
     private func handle(eventType: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -95,6 +97,7 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
+            AppLog.info("event tap re-enabled type=\(eventType.rawValue)", category: "hotkey")
             return Unmanaged.passUnretained(event)
         }
 

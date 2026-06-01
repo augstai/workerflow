@@ -4,15 +4,19 @@ import {
   captureRepoContext,
   commandExists,
   createJob,
+  createDiagnosticsBundle,
   DEFAULT_CONFIG,
+  diagnosticsRoot,
   formatSafetyRules,
   getJob,
   listJobs,
   loadEnvironment,
+  nativeMacLogPath,
   readProjectConfig,
   runCommand,
   runWorkerflowJob,
   transcribeAudioFile,
+  workerflowHome,
   writeProjectConfig
 } from "../../../packages/core/src/index.js";
 
@@ -36,6 +40,8 @@ try {
     await transcribe(rest);
   } else if (command === "job") {
     job(rest);
+  } else if (command === "debug" || command === "diagnostics") {
+    debug(rest);
   } else if (command === "safety") {
     safety();
   } else if (command === "help" || command === "--help" || command === "-h") {
@@ -312,6 +318,39 @@ function safety() {
   console.log(formatSafetyRules());
 }
 
+function debug(rawArgs) {
+  const flags = parseFlags(rawArgs);
+
+  if (flags.bundle) {
+    const bundle = createDiagnosticsBundle({
+      cwd: process.cwd(),
+      loadedEnvFiles
+    });
+    console.log(`Bundle: ${bundle.path}`);
+    for (const file of bundle.files) {
+      console.log(`- ${file}`);
+    }
+    return;
+  }
+
+  const { config, path } = readProjectConfig(process.cwd());
+  const context = captureRepoContext(process.cwd());
+
+  console.log("Workerflow debug");
+  console.log("");
+  console.log(`Repo: ${context.repoRoot}`);
+  console.log(`Config: ${path ?? "not attached"}`);
+  console.log(`Agent: ${(config ?? DEFAULT_CONFIG).agent}`);
+  console.log(`Transcription: ${(config ?? DEFAULT_CONFIG).transcription.provider}`);
+  console.log(`Workerflow home: ${workerflowHome()}`);
+  console.log(`Native Mac log: ${nativeMacLogPath()}`);
+  console.log(`Diagnostics dir: ${diagnosticsRoot()}`);
+  console.log(`Env files: ${loadedEnvFiles.length ? loadedEnvFiles.map((item) => item.path).join(", ") : "none loaded"}`);
+  console.log("");
+  console.log("Create a redacted diagnostics bundle with:");
+  console.log("workerflow debug --bundle");
+}
+
 function help() {
   console.log(`Workerflow
 
@@ -325,6 +364,7 @@ Usage:
   workerflow job list
   workerflow job show <job-id>
   workerflow job create <task>
+  workerflow debug [--bundle]
   workerflow safety
 `);
 }

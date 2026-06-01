@@ -42,6 +42,7 @@ final class AudioCaptureManager: NSObject, ObservableObject, AVAudioRecorderDele
         self.recorder = recorder
         self.currentFileURL = fileURL
         startMetering()
+        AppLog.info("recording started file=\(fileURL.lastPathComponent)", category: "audio")
         return fileURL
     }
 
@@ -56,6 +57,9 @@ final class AudioCaptureManager: NSObject, ObservableObject, AVAudioRecorderDele
         currentFileURL = nil
         currentPowerLevel = 0
         appendPowerLevel(0.04)
+        if let fileURL {
+            AppLog.info("recording stopped file=\(fileURL.lastPathComponent)", category: "audio")
+        }
 
         return fileURL
     }
@@ -64,6 +68,7 @@ final class AudioCaptureManager: NSObject, ObservableObject, AVAudioRecorderDele
         let fileURL = stopRecording()
         if let fileURL {
             try? FileManager.default.removeItem(at: fileURL)
+            AppLog.info("recording cancelled file=\(fileURL.lastPathComponent)", category: "audio")
         }
     }
 

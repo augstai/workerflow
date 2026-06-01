@@ -50,9 +50,12 @@
 - result summary
 - 60-second demo script
 - install docs
+- native debug logs and redacted diagnostics bundles
 
 ## Later
 
+- mouse-following screen context overlay
+- screen-pointing coordinate pipeline
 - local transcription
 - Aider adapter
 - custom command adapter

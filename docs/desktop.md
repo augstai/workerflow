@@ -121,6 +121,22 @@ Azure OpenAI:
 }
 ```
 
+## Debugging
+
+Native shell logs:
+
+```text
+~/Library/Logs/Workerflow/workerflow-mac.log
+```
+
+Create a redacted diagnostics bundle:
+
+```bash
+pnpm workerflow debug --bundle
+```
+
+Diagnostics bundles are written to `~/.workerflow/diagnostics/`. Job artifacts are written to `~/.workerflow/jobs/<job-id>/`.
+
 ElevenLabs:
 
 ```json

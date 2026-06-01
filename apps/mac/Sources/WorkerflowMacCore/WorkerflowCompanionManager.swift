@@ -65,6 +65,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     private var permissionTimer: Timer?
     private var statusTask: Task<Void, Never>?
     private var activeRecordingURL: URL?
+    private var lastPermissionSnapshot = ""
 
     var allRequiredPermissionsGranted: Bool {
         hasAccessibilityPermission && hasMicrophonePermission
@@ -94,6 +95,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func start() {
+        AppLog.info("manager start repo=\(bridge.repoRoot.path)", category: "manager")
         refreshPermissions()
         startPermissionPolling()
         refreshStatus()
@@ -104,6 +106,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func stop() {
+        AppLog.info("manager stop", category: "manager")
         statusTask?.cancel()
         permissionTimer?.invalidate()
         shortcutMonitor.stop()
@@ -115,6 +118,7 @@ final class WorkerflowCompanionManager: ObservableObject {
         hasAccessibilityPermission = PermissionCenter.hasAccessibilityPermission()
         hasMicrophonePermission = PermissionCenter.hasMicrophonePermission()
         hasScreenRecordingPermission = PermissionCenter.hasScreenRecordingPermission()
+        logPermissionSnapshotIfChanged()
 
         if hasAccessibilityPermission {
             shortcutMonitor.start()
@@ -124,6 +128,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func requestAccessibilityPermission() {
+        AppLog.info("request accessibility", category: "manager")
         _ = PermissionCenter.requestAccessibilityPermission()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.refreshPermissions()
@@ -131,6 +136,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func requestScreenRecordingPermission() {
+        AppLog.info("request screen recording", category: "manager")
         _ = PermissionCenter.requestScreenRecordingPermission()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.refreshPermissions()
@@ -138,6 +144,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func requestMicrophonePermission() {
+        AppLog.info("request microphone", category: "manager")
         Task {
             let granted = await PermissionCenter.requestMicrophonePermission()
             hasMicrophonePermission = granted
@@ -145,20 +152,24 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func revealAppInFinder() {
+        AppLog.info("reveal app in finder", category: "manager")
         PermissionCenter.revealAppInFinder()
     }
 
     func setSelectedAgent(_ agent: String) {
+        AppLog.info("selected agent=\(agent)", category: "manager")
         selectedAgent = agent
         UserDefaults.standard.set(agent, forKey: Self.agentDefaultsKey)
     }
 
     func refreshStatus() {
+        AppLog.info("refresh status", category: "manager")
         statusTask?.cancel()
         statusTask = Task {
             let nextStatus = await bridge.status()
             guard !Task.isCancelled else { return }
             status = nextStatus
+            AppLog.info("status repo=\(nextStatus.repo) branch=\(nextStatus.branch) agent=\(nextStatus.agent) transcription=\(nextStatus.transcription)", category: "manager")
             if UserDefaults.standard.string(forKey: Self.agentDefaultsKey) == nil {
                 selectedAgent = nextStatus.agent.isEmpty ? "codex" : nextStatus.agent
             }
@@ -166,6 +177,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func clearTranscript() {
+        AppLog.info("clear transcript", category: "manager")
         transcript = ""
         commandOutput = ""
         message = "Workerflow is ready."
@@ -174,6 +186,9 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func updateTranscript(_ nextTranscript: String) {
+        if abs(nextTranscript.count - transcript.count) > 12 {
+            AppLog.info("transcript edited length=\(nextTranscript.count)", category: "manager")
+        }
         transcript = nextTranscript
     }
 
@@ -181,6 +196,7 @@ final class WorkerflowCompanionManager: ObservableObject {
         let task = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !task.isEmpty else { return }
 
+        AppLog.info("run reviewed task agent=\(selectedAgent) taskLength=\(task.count)", category: "manager")
         voiceState = .running
         message = "Running \(selectedAgent)."
         commandOutput = ""
@@ -192,11 +208,13 @@ final class WorkerflowCompanionManager: ObservableObject {
                 commandOutput = result.combinedOutput
                 message = summarizeCommandOutput(result.combinedOutput)
                 voiceState = .succeeded
+                AppLog.info("run succeeded outputBytes=\(result.combinedOutput.utf8.count)", category: "manager")
                 refreshStatus()
             } catch {
                 commandOutput = error.localizedDescription
                 message = "Workerflow run failed."
                 voiceState = .failed
+                AppLog.error("run failed error=\(error.localizedDescription)", category: "manager")
             }
 
             voicePillOverlayManager.show(manager: self)
@@ -207,6 +225,7 @@ final class WorkerflowCompanionManager: ObservableObject {
         guard allRequiredPermissionsGranted else {
             message = "Grant microphone and accessibility permissions."
             voiceState = .failed
+            AppLog.error("capture blocked missing permissions accessibility=\(hasAccessibilityPermission) microphone=\(hasMicrophonePermission)", category: "manager")
             return
         }
 
@@ -214,6 +233,7 @@ final class WorkerflowCompanionManager: ObservableObject {
 
         do {
             activeRecordingURL = try audioCaptureManager.startRecording()
+            AppLog.info("capture started", category: "manager")
             transcript = ""
             commandOutput = ""
             message = "Listening."
@@ -222,6 +242,7 @@ final class WorkerflowCompanionManager: ObservableObject {
         } catch {
             message = error.localizedDescription
             voiceState = .failed
+            AppLog.error("capture failed error=\(error.localizedDescription)", category: "manager")
             voicePillOverlayManager.show(manager: self)
         }
     }
@@ -231,12 +252,14 @@ final class WorkerflowCompanionManager: ObservableObject {
         guard let recordingURL = audioCaptureManager.stopRecording() ?? activeRecordingURL else {
             message = "No recording captured."
             voiceState = .failed
+            AppLog.error("finish capture failed no recording url", category: "manager")
             return
         }
 
         activeRecordingURL = nil
         voiceState = .transcribing
         message = "Transcribing."
+        AppLog.info("capture finished transcribing file=\(recordingURL.lastPathComponent)", category: "manager")
         voicePillOverlayManager.show(manager: self)
 
         Task {
@@ -254,11 +277,13 @@ final class WorkerflowCompanionManager: ObservableObject {
                 transcript = cleaned
                 message = "Ready to run."
                 voiceState = .review
+                AppLog.info("transcription succeeded length=\(cleaned.count)", category: "manager")
             } catch {
                 try? FileManager.default.removeItem(at: recordingURL)
                 commandOutput = error.localizedDescription
                 message = "Transcription failed."
                 voiceState = .failed
+                AppLog.error("transcription failed error=\(error.localizedDescription)", category: "manager")
             }
 
             voicePillOverlayManager.show(manager: self)
@@ -287,9 +312,38 @@ final class WorkerflowCompanionManager: ObservableObject {
         case .none:
             break
         case .pressed:
+            AppLog.info("shortcut pressed", category: "hotkey")
             beginCapture()
         case .released:
+            AppLog.info("shortcut released", category: "hotkey")
             finishCapture()
+        }
+    }
+
+    func openLogs() {
+        AppLog.info("open logs", category: "manager")
+        AppLog.revealLogFile()
+    }
+
+    func createDiagnosticsBundle() {
+        message = "Creating diagnostics bundle."
+        commandOutput = ""
+        voiceState = .running
+        AppLog.info("create diagnostics bundle", category: "manager")
+
+        Task {
+            do {
+                let bundlePath = try await bridge.createDiagnosticsBundle()
+                commandOutput = "Diagnostics bundle:\n\(bundlePath)"
+                message = "Diagnostics bundle created."
+                voiceState = .succeeded
+                AppLog.info("diagnostics bundle created path=\(bundlePath)", category: "manager")
+            } catch {
+                commandOutput = error.localizedDescription
+                message = "Diagnostics bundle failed."
+                voiceState = .failed
+                AppLog.error("diagnostics bundle failed error=\(error.localizedDescription)", category: "manager")
+            }
         }
     }
 
@@ -311,5 +365,12 @@ final class WorkerflowCompanionManager: ObservableObject {
         return lines.last(where: { $0.hasPrefix("Summary:") })
             ?? lines.first
             ?? "Workerflow run finished."
+    }
+
+    private func logPermissionSnapshotIfChanged() {
+        let snapshot = "accessibility=\(hasAccessibilityPermission) microphone=\(hasMicrophonePermission) screenRecording=\(hasScreenRecordingPermission)"
+        guard snapshot != lastPermissionSnapshot else { return }
+        lastPermissionSnapshot = snapshot
+        AppLog.info(snapshot, category: "permissions")
     }
 }

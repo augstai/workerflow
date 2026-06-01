@@ -100,6 +100,15 @@ pnpm build:mac
 pnpm test:mac
 ```
 
+Debug the native shell:
+
+```bash
+pnpm workerflow debug
+pnpm workerflow debug --bundle
+```
+
+Native logs live at `~/Library/Logs/Workerflow/workerflow-mac.log`.
+
 Run the Electron prototype shell:
 
 ```bash

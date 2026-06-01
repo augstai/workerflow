@@ -13,6 +13,7 @@ public final class WorkerflowAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLog.info("launch pid=\(ProcessInfo.processInfo.processIdentifier)", category: "lifecycle")
         NSApp.setActivationPolicy(.accessory)
         UserDefaults.standard.register(defaults: [
             "NSInitialToolTipDelay": 0
@@ -28,6 +29,7 @@ public final class WorkerflowAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
+        AppLog.info("terminate", category: "lifecycle")
         companionManager.stop()
     }
 

@@ -43,6 +43,7 @@ final class WorkerflowBridge {
     }
 
     func transcribe(audioFileURL: URL) async throws -> String {
+        AppLog.info("transcribe request file=\(audioFileURL.lastPathComponent)", category: "bridge")
         let result = try await runWorkerflow(arguments: ["transcribe", audioFileURL.path], timeout: 120)
         guard result.exitCode == 0 else {
             throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
@@ -52,11 +53,29 @@ final class WorkerflowBridge {
     }
 
     func run(task: String, agent: String) async throws -> WorkerflowCommandResult {
+        AppLog.info("run request agent=\(agent) taskLength=\(task.count)", category: "bridge")
         let result = try await runWorkerflow(arguments: ["run", "--agent", agent, task], timeout: 1_800)
         if result.exitCode != 0 {
             throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
         }
         return result
+    }
+
+    func createDiagnosticsBundle() async throws -> String {
+        let result = try await runWorkerflow(arguments: ["debug", "--bundle"], timeout: 60)
+        guard result.exitCode == 0 else {
+            throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
+        }
+
+        let bundleLine = result.stdout
+            .split(separator: "\n")
+            .first { $0.hasPrefix("Bundle:") }
+            .map(String.init)
+
+        return bundleLine?
+            .replacingOccurrences(of: "Bundle:", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func runWorkerflow(arguments: [String], timeout: TimeInterval) async throws -> WorkerflowCommandResult {
@@ -151,6 +170,10 @@ final class WorkerflowBridge {
         currentDirectoryURL: URL,
         timeout: TimeInterval
     ) async throws -> WorkerflowCommandResult {
+        AppLog.info(
+            "process start executable=\(executableURL.path) cwd=\(currentDirectoryURL.path) args=\(redactedArguments(arguments).joined(separator: " "))",
+            category: "process"
+        )
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
@@ -206,11 +229,25 @@ final class WorkerflowBridge {
         stdoutCollector.append(stdoutPipe.fileHandleForReading.readDataToEndOfFile())
         stderrCollector.append(stderrPipe.fileHandleForReading.readDataToEndOfFile())
 
-        return WorkerflowCommandResult(
+        let result = WorkerflowCommandResult(
             exitCode: process.terminationStatus,
             stdout: stdoutCollector.stringValue(),
             stderr: stderrCollector.stringValue()
         )
+        AppLog.info(
+            "process exit code=\(result.exitCode) stdoutBytes=\(result.stdout.utf8.count) stderrBytes=\(result.stderr.utf8.count)",
+            category: "process"
+        )
+        return result
+    }
+
+    private static func redactedArguments(_ arguments: [String]) -> [String] {
+        arguments.map { argument in
+            if argument.count > 160 {
+                return "\(argument.prefix(160))..."
+            }
+            return AppLog.redact(argument)
+        }
     }
 }
 

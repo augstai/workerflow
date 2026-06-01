@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowRight, Check, ChevronDown, Folder, Mic, Settings, Square, Zap } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleStop, Folder, GitBranch, Mic, Settings2, Sparkles, Terminal, Zap } from "lucide-react";
 import { VoiceButton, type VoiceButtonState } from "./components/elevenlabs-ui/voice-button";
 import { Button } from "./components/elevenlabs-ui/button";
 import { cn } from "./lib/utils";
@@ -47,7 +47,6 @@ function App() {
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
   const captureModeRef = React.useRef<CaptureMode>("task");
-  const testTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -90,16 +89,11 @@ function App() {
     return () => {
       mounted = false;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
-      if (testTimerRef.current) {
-        window.clearTimeout(testTimerRef.current);
-        testTimerRef.current = null;
-      }
     };
   }, []);
 
   async function beginCapture(mode: CaptureMode) {
     captureModeRef.current = mode;
-    if (testTimerRef.current) window.clearTimeout(testTimerRef.current);
 
     setStatus("listening");
     setMessage("");
@@ -155,7 +149,6 @@ function App() {
   }
 
   function stopCapture() {
-    if (testTimerRef.current) window.clearTimeout(testTimerRef.current);
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
@@ -199,15 +192,14 @@ function App() {
     }
   }
 
-  async function testVoice() {
+  async function toggleVoiceCapture() {
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       stopCapture();
       return;
     }
 
-    await beginCapture("test");
-    testTimerRef.current = window.setTimeout(stopCapture, 3200);
+    await beginCapture("task");
   }
 
   async function updateSettings(patch: Partial<WorkerflowSettings>) {
@@ -218,56 +210,66 @@ function App() {
   const voiceState = viewStatusToVoiceButtonState(status);
   const canRun = Boolean((confirmation?.task || task).trim()) && confirmation?.mode !== "dictation";
   const currentRepoName = repoName(context, settings);
+  const sheetOpen = settingsOpen || Boolean(task.trim()) || Boolean(transcript) || Boolean(message) || Boolean(confirmation) || Boolean(job);
 
   return (
-    <main className="app-shell">
-      <section className="wf-pill" data-state={status}>
-        <div className="status-dot" />
-        <div className="min-w-0 flex-1">
-          <div className="status-line">{statusLabel(status)}</div>
-          <div className="meta-line">
-            {settings.agentLabel ?? formatAgent(settings.agent)} · {currentRepoName} · {settings.hotkeyLabel ?? "Option+Space"}
+    <main className="app-shell" data-state={status}>
+      <section className="voice-surface" data-state={status}>
+        <div className="voice-header">
+          <div className="voice-identity">
+            <span className="mic-orb">
+              <Mic className="size-4" />
+            </span>
+            <div className="voice-copy">
+              <div className="status-line">{statusLabel(status)}</div>
+              <div className="meta-line">{statusSubtitle(status, settings, currentRepoName)}</div>
+            </div>
           </div>
+          <Button className="icon-button" variant="ghost" size="icon" onClick={() => setSettingsOpen((value) => !value)} aria-label="Settings">
+            {settingsOpen ? <ChevronDown className="size-4" /> : <Settings2 className="size-4" />}
+          </Button>
         </div>
-        <span className="provider-pill">{providerLabel(settings.transcription.provider)}</span>
-      </section>
 
-      <section className="command-panel">
-        <div className="panel-topline">
-          <Button variant="ghost" className="repo-button" onClick={chooseRepo}>
-            <Folder className="size-4" />
+        <VoiceButton
+          state={voiceState}
+          label={voiceActionLabel(status)}
+          trailing={<kbd>{settings.hotkeyLabel ?? "Option+Space"}</kbd>}
+          onPress={toggleVoiceCapture}
+          className="voice-button"
+          waveformClassName="voice-waveform"
+        />
+
+        <div className="context-strip">
+          <Button variant="ghost" className="context-chip repo-chip" onClick={chooseRepo}>
+            <Folder className="size-3.5" />
             <span>{currentRepoName}</span>
           </Button>
-
-          <select
-            className="native-select"
-            value={settings.agent}
-            onChange={(event) => updateSettings({ agent: event.target.value as "codex" | "claude" })}
-            aria-label="Agent"
-          >
-            <option value="codex">Codex</option>
-            <option value="claude">Claude</option>
-          </select>
+          <label className="context-chip select-chip">
+            <Terminal className="size-3.5" />
+            <select value={settings.agent} onChange={(event) => updateSettings({ agent: event.target.value as "codex" | "claude" })} aria-label="Agent">
+              <option value="codex">Codex</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+          <span className="context-chip">
+            <Sparkles className="size-3.5" />
+            {providerLabel(settings.transcription.provider)}
+          </span>
         </div>
+      </section>
 
-        <div className="voice-strip">
-          <VoiceButton
-            state={voiceState}
-            label={voiceActionLabel(status)}
-            trailing={settings.hotkeyLabel ?? "⌥ Space"}
-            onPress={testVoice}
-            className="voice-button"
-            waveformClassName="voice-waveform"
-          />
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen((value) => !value)} aria-label="Settings">
-            {settingsOpen ? <ChevronDown className="size-4" /> : <Settings className="size-4" />}
-          </Button>
+      <section className={cn("review-sheet", sheetOpen && "is-open")}>
+        <div className="composer-head">
+          <span>Command</span>
+          <span className="branch-chip">
+            <GitBranch className="size-3" />
+            {context.branch || "main"}
+          </span>
         </div>
-
         <textarea
           className="task-input"
           spellCheck={false}
-          placeholder="Say or type a coding task"
+          placeholder="Say or type a coding task..."
           value={task}
           onChange={(event) => {
             setTask(event.target.value);
@@ -275,14 +277,12 @@ function App() {
           }}
         />
 
-        <div className="transcript-line">{transcript || "Voice transcript appears here after a test or capture."}</div>
+        {transcript ? <div className="transcript-line">{transcript}</div> : null}
 
         {confirmation ? (
           <div className="confirmation">
-            <div>
-              <div className="eyebrow">Task understood</div>
-              <div className="confirm-title">{confirmation.task}</div>
-            </div>
+            <div className="eyebrow">Task understood</div>
+            <div className="confirm-title">{confirmation.task}</div>
             <div className="confirm-grid">
               <span>{settings.agentLabel ?? formatAgent(settings.agent)}</span>
               <span>{currentRepoName}</span>
@@ -292,7 +292,7 @@ function App() {
           </div>
         ) : null}
 
-        <div className="message-line">{message}</div>
+        {message ? <div className="message-line">{message}</div> : null}
 
         {job ? <JobResult job={job} /> : null}
 
@@ -302,7 +302,7 @@ function App() {
 
         <div className="action-row">
           <Button variant="ghost" onClick={() => workerflow.stopRecording()}>
-            <Square className="size-4" />
+            <CircleStop className="size-4" />
             Stop
           </Button>
           <Button variant="outline" onClick={reviewTask}>
@@ -485,12 +485,21 @@ function statusLabel(status: ViewStatus) {
   return labels[status];
 }
 
+function statusSubtitle(status: ViewStatus, settings: WorkerflowSettings, repo: string) {
+  if (status === "listening") return `Recording for ${repo}`;
+  if (status === "transcribing") return `${providerLabel(settings.transcription.provider)} is transcribing`;
+  if (status === "running") return `${settings.agentLabel ?? formatAgent(settings.agent)} is working`;
+  if (status === "review") return "Approval needed";
+  if (status === "failed") return "Check voice or provider settings";
+  return `${settings.agentLabel ?? formatAgent(settings.agent)} -> ${repo}`;
+}
+
 function voiceActionLabel(status: ViewStatus) {
-  if (status === "listening") return "Recording";
+  if (status === "listening") return "Stop recording";
   if (status === "transcribing") return "Transcribing";
   if (status === "running") return "Running";
-  if (status === "failed") return "Retry voice";
-  return "Test voice";
+  if (status === "failed") return "Try again";
+  return "Speak task";
 }
 
 function providerLabel(value?: string) {

@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-struct WorkerflowPanelView: View {
-    @ObservedObject var companionManager: WorkerflowCompanionManager
+struct WorkerflowPanelView<Companion: WorkerflowCompanionModel>: View {
+    @ObservedObject var companionManager: Companion
     @State private var isResultExpanded = false
 
     var body: some View {
@@ -21,6 +21,10 @@ struct WorkerflowPanelView: View {
                 readySection
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
+
+                screenContextSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
             }
 
             if companionManager.shouldShowReviewControls {
@@ -153,78 +157,15 @@ struct WorkerflowPanelView: View {
 
     private var readySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Button {
-                    performPrimaryAction()
-                } label: {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(primaryActionTint.opacity(0.18))
-                                .frame(width: 34, height: 34)
-
-                            Image(systemName: primaryActionIcon)
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(primaryActionTint)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(primaryActionTitle)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(WFDesign.Colors.text)
-
-                            Text(companionManager.message)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(WFDesign.Colors.textMuted)
-                                .lineLimit(1)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        if primaryActionShowsProgress {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(WFDesign.Colors.accent)
-                        }
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(WFDesign.Colors.panelElevated)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(WFDesign.Colors.border, lineWidth: 0.8)
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(primaryActionDisabled)
-
-                if companionManager.voiceState == .listening {
-                    Button {
-                        companionManager.finishCapture()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(WFDesign.Colors.text)
-                            .frame(width: 40, height: 40)
-                            .background(
-                                Circle()
-                                    .fill(WFDesign.Colors.control)
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(WFDesign.Colors.border, lineWidth: 0.8)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            if companionManager.voiceState == .listening {
-                waveformPreview
-            }
+            WorkerflowVoiceActionButton(
+                state: companionManager.voiceState,
+                title: primaryActionTitle,
+                message: companionManager.message,
+                shortcutText: companionManager.shortcutText,
+                levels: companionManager.audioPowerHistory,
+                disabled: primaryActionDisabled,
+                action: performPrimaryAction
+            )
         }
     }
 
@@ -254,6 +195,25 @@ struct WorkerflowPanelView: View {
                 }
                 .buttonStyle(QuietButtonStyle())
             }
+        }
+    }
+
+    private var screenContextSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("SCREEN CONTEXT")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(WFDesign.Colors.textFaint)
+
+                Text("OPTIONAL")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(WFDesign.Colors.accent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule(style: .continuous).fill(WFDesign.Colors.accent.opacity(0.12)))
+
+                Spacer()
+            }
 
             permissionRow(
                 title: "Screen Recording",
@@ -261,6 +221,15 @@ struct WorkerflowPanelView: View {
                 granted: companionManager.hasScreenRecordingPermission,
                 actionTitle: "Grant",
                 action: companionManager.requestScreenRecordingPermission
+            )
+
+            permissionRow(
+                title: "Screen Content",
+                systemImage: "display",
+                granted: companionManager.hasScreenContentPermission,
+                actionTitle: companionManager.isRequestingScreenContent ? "Checking" : "Verify",
+                disabled: !companionManager.hasScreenRecordingPermission || companionManager.isRequestingScreenContent,
+                action: companionManager.requestScreenContentPermission
             )
         }
     }
@@ -270,6 +239,7 @@ struct WorkerflowPanelView: View {
         systemImage: String,
         granted: Bool,
         actionTitle: String,
+        disabled: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 10) {
@@ -298,6 +268,8 @@ struct WorkerflowPanelView: View {
                     Text(actionTitle)
                 }
                 .buttonStyle(QuietButtonStyle())
+                .disabled(disabled)
+                .opacity(disabled ? 0.45 : 1)
             }
         }
         .padding(.vertical, 4)
@@ -384,6 +356,8 @@ struct WorkerflowPanelView: View {
             }
 
             if isResultExpanded {
+                runMetadataView
+
                 Text(companionManager.commandOutput)
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundColor(WFDesign.Colors.textMuted)
@@ -408,15 +382,71 @@ struct WorkerflowPanelView: View {
         .padding(.bottom, 1)
     }
 
-    private var waveformPreview: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(companionManager.audioPowerHistory.suffix(16).enumerated()), id: \.offset) { _, level in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(waveformColor.opacity(0.35 + Double(min(level, 1)) * 0.65))
-                    .frame(width: 3, height: 6 + max(0.04, level) * 22)
+    private var runMetadataView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !companionManager.lastRunMetadata.jobId.isEmpty {
+                HStack(spacing: 6) {
+                    statusChip(companionManager.lastRunMetadata.status)
+                    if !companionManager.lastRunMetadata.jobId.isEmpty {
+                        Text(companionManager.lastRunMetadata.jobId)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(WFDesign.Colors.textFaint)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                }
+            }
+
+            HStack(spacing: 7) {
+                if !companionManager.lastRunMetadata.artifacts.isEmpty {
+                    Button {
+                        companionManager.openLastArtifacts()
+                    } label: {
+                        Label("Artifacts", systemImage: "folder")
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                }
+
+                if !companionManager.lastRunMetadata.workspace.isEmpty {
+                    Button {
+                        companionManager.openLastWorkspace()
+                    } label: {
+                        Label("Workspace", systemImage: "rectangle.stack")
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                }
+
+                if companionManager.canApplyLastJob {
+                    Button {
+                        companionManager.applyLastJob()
+                    } label: {
+                        Label("Apply", systemImage: "checkmark")
+                    }
+                    .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+
+                    Button {
+                        companionManager.rejectLastJob()
+                    } label: {
+                        Label("Reject", systemImage: "xmark")
+                    }
+                    .buttonStyle(DestructiveButtonStyle())
+                }
+
+                Spacer(minLength: 0)
             }
         }
-        .frame(width: 82, height: 34)
+    }
+
+    private func statusChip(_ status: String) -> some View {
+        Text(status.isEmpty ? "unknown" : status)
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundColor(resultColor)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(resultColor.opacity(0.12))
+            )
     }
 
     private var panelBackground: some View {
@@ -428,81 +458,77 @@ struct WorkerflowPanelView: View {
 
     private var statusColor: Color {
         switch companionManager.voiceState {
-        case .failed:
+        case .failed, .needsAttention:
             return WFDesign.Colors.danger
+        case .needsApproval:
+            return WFDesign.Colors.warning
         case .succeeded:
             return WFDesign.Colors.success
-        case .listening, .transcribing, .running:
+        case .preparing, .listening, .transcribing, .thinking, .handoff, .running:
             return WFDesign.Colors.accent
         case .idle, .review:
             return companionManager.allRequiredPermissionsGranted ? WFDesign.Colors.success : WFDesign.Colors.warning
         }
     }
 
-    private var waveformColor: Color {
-        companionManager.voiceState == .failed ? WFDesign.Colors.danger : WFDesign.Colors.accent
-    }
-
     private var primaryActionTitle: String {
         switch companionManager.voiceState {
         case .idle, .succeeded:
             return "Speak"
+        case .preparing:
+            return "Preparing"
         case .listening:
             return "Listening"
         case .transcribing:
             return "Transcribing"
+        case .thinking:
+            return "Thinking"
+        case .handoff:
+            return "Sending"
         case .review:
             return "Speak again"
         case .running:
             return "Working"
-        case .failed:
+        case .needsApproval:
+            return "Review"
+        case .needsAttention, .failed:
             return "Try again"
         }
     }
 
-    private var primaryActionIcon: String {
-        switch companionManager.voiceState {
-        case .transcribing, .running:
-            return "waveform"
-        case .failed:
-            return "arrow.counterclockwise"
-        default:
-            return "mic.fill"
-        }
-    }
-
-    private var primaryActionTint: Color {
-        switch companionManager.voiceState {
-        case .failed:
-            return WFDesign.Colors.danger
-        case .succeeded:
-            return WFDesign.Colors.success
-        default:
-            return WFDesign.Colors.accent
-        }
-    }
-
     private var primaryActionDisabled: Bool {
-        companionManager.voiceState == .transcribing || companionManager.voiceState == .running
-    }
-
-    private var primaryActionShowsProgress: Bool {
-        companionManager.voiceState == .transcribing || companionManager.voiceState == .running
+        companionManager.voiceState == .preparing
+            || companionManager.voiceState == .transcribing
+            || companionManager.voiceState == .thinking
+            || companionManager.voiceState == .handoff
+            || companionManager.voiceState == .running
     }
 
     private var resultIcon: String {
-        companionManager.voiceState == .failed ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+        if companionManager.voiceState == .failed || companionManager.voiceState == .needsAttention {
+            return "exclamationmark.triangle.fill"
+        }
+        if companionManager.voiceState == .needsApproval {
+            return "hand.raised.fill"
+        }
+        return "checkmark.circle.fill"
     }
 
     private var resultColor: Color {
-        companionManager.voiceState == .failed ? WFDesign.Colors.danger : WFDesign.Colors.success
+        if companionManager.voiceState == .failed || companionManager.voiceState == .needsAttention {
+            return WFDesign.Colors.danger
+        }
+        if companionManager.voiceState == .needsApproval {
+            return WFDesign.Colors.warning
+        }
+        return WFDesign.Colors.success
     }
 
     private func performPrimaryAction() {
         switch companionManager.voiceState {
         case .listening:
             companionManager.finishCapture()
-        case .transcribing, .running:
+        case .preparing, .transcribing, .thinking, .handoff, .running:
             break
         default:
             companionManager.beginCapture()

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  applyJobPatch,
   buildAgentPrompt,
   captureRepoContext,
   commandExists,
@@ -12,6 +13,7 @@ import {
   listJobs,
   loadEnvironment,
   nativeMacLogPath,
+  rejectJob,
   readProjectConfig,
   runCommand,
   runWorkerflowJob,
@@ -163,12 +165,7 @@ async function smokeAgent(name, args, input) {
 
 async function run(rawArgs) {
   const flags = parseFlags(rawArgs);
-  const task = rawArgs.filter((value, index) => {
-    if (!value.startsWith("--")) {
-      return rawArgs[index - 1] !== "--agent";
-    }
-    return false;
-  }).join(" ").trim();
+  const task = positionalArgs(rawArgs, new Set(["agent", "screen-context"])).join(" ").trim();
 
   if (!task) {
     fail("Usage: workerflow run [--agent codex|claude] [--dry-run] <task>");
@@ -178,7 +175,8 @@ async function run(rawArgs) {
     task,
     cwd: process.cwd(),
     agent: flags.agent,
-    dryRun: Boolean(flags["dry-run"])
+    dryRun: Boolean(flags["dry-run"]),
+    screenContextDir: flags["screen-context"]
   });
 
   console.log(`Job: ${job.id}`);
@@ -292,6 +290,32 @@ function job(rawArgs) {
     return;
   }
 
+  if (subcommand === "apply") {
+    const id = subArgs[0];
+    if (!id) {
+      fail("Usage: workerflow job apply <job-id>");
+    }
+
+    const record = applyJobPatch(id);
+    console.log(`Job: ${record.id}`);
+    console.log(`Status: ${record.status}`);
+    console.log(`Summary: ${record.summary}`);
+    return;
+  }
+
+  if (subcommand === "reject") {
+    const id = subArgs[0];
+    if (!id) {
+      fail("Usage: workerflow job reject <job-id>");
+    }
+
+    const record = rejectJob(id);
+    console.log(`Job: ${record.id}`);
+    console.log(`Status: ${record.status}`);
+    console.log(`Summary: ${record.summary}`);
+    return;
+  }
+
   if (subcommand === "create") {
     const task = subArgs.join(" ").trim();
     if (!task) {
@@ -366,10 +390,12 @@ Usage:
   workerflow status
   workerflow prompt <task>
   workerflow transcribe <audio-file>
-  workerflow run [--agent codex|claude] [--dry-run] <task>
+  workerflow run [--agent codex|claude] [--dry-run] [--screen-context <dir>] <task>
   workerflow job list
   workerflow job show <job-id>
   workerflow job create <task>
+  workerflow job apply <job-id>
+  workerflow job reject <job-id>
   workerflow debug [--bundle]
   workerflow safety
 `);
@@ -400,6 +426,24 @@ function parseFlags(rawArgs) {
   }
 
   return flags;
+}
+
+function positionalArgs(rawArgs, valueFlags = new Set()) {
+  const values = [];
+
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const value = rawArgs[index];
+    if (value.startsWith("--")) {
+      const key = value.slice(2);
+      if (valueFlags.has(key)) {
+        index += 1;
+      }
+      continue;
+    }
+    values.push(value);
+  }
+
+  return values;
 }
 
 function printCommand(label, value) {

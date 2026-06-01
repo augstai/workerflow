@@ -1,8 +1,17 @@
 import { DEFAULT_SAFETY_RULES } from "./safety.js";
 
-export function buildAgentPrompt({ task, config, context }) {
+export function buildAgentPrompt({ task, config, context, screenContext }) {
   const commands = config.commands ?? {};
   const denyPaths = config.denyPaths ?? [];
+  const screenContextSection = screenContext
+    ? `
+Screen context:
+- captured displays: ${screenContext.displayCount ?? screenContext.displays?.length ?? "unknown"}
+- cursor display: ${screenContext.displays?.find((display) => display.isCursorScreen)?.label ?? "unknown"}
+- screenshots are saved in this job's screen-context artifact directory.
+- Use screen details only when they help the coding task; do not assume private screen content is relevant.
+`
+    : "";
 
   return `You are running inside an isolated Workerflow job.
 
@@ -19,6 +28,7 @@ Repo context:
 - package manager: ${context.packageManager || "unknown"}
 - changed files: ${context.changedFiles.length ? context.changedFiles.join(", ") : "none"}
 - project files: ${context.projectFiles.length ? context.projectFiles.join(", ") : "none"}
+${screenContextSection}
 
 Verification commands:
 - test: ${commands.test || "not configured"}

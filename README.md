@@ -1,14 +1,14 @@
 # Workerflow
 
-Hold a key. Say the task. Your coding agent gets to work.
+Hold a key. Say the task. Workerflow operates your Mac or hands off to a coding agent.
 
-Workerflow is an open-source, Mac-first layer for launching coding-agent jobs from anywhere. The first product target is a tiny push-to-talk flow:
+Workerflow is an open-source, Mac-first layer for voice-driven work. It can handle safe local Mac tasks directly, guide desktop workflows with user approval, and launch coding-agent jobs when the task needs codebase reasoning.
 
 ```text
-hold hotkey -> speak -> release -> background agent job -> diff/result
+hold hotkey -> speak -> release -> direct Mac action | guided operator | coding-agent job
 ```
 
-The goal is not to build another chat app or full IDE. Workerflow should feel like a fast system utility for developers: capture intent, collect repo context, run an existing agent safely, and bring back a verified patch or summary.
+The goal is not to build another chat app. Workerflow should feel like a fast system utility: capture intent, decide the right route, act locally when safe, collect context when useful, and bring back a reviewable result.
 
 ## Status
 
@@ -23,6 +23,8 @@ This repository is at the project foundation stage. The current code provides:
 - an Electron tray app with a React/Vite hotkey overlay
 - a native Swift/AppKit menu-bar shell scaffold
 - a compact recording pill built with adapted ElevenLabs UI components
+- optional ScreenCaptureKit screen context
+- native UI gallery for fast state iteration
 - configurable transcription providers
 - OSS docs, issue templates, and CI
 
@@ -52,12 +54,16 @@ For voice transcription, copy `.env.example` to `.env` during local development 
 
 ## Product Shape
 
-Workerflow has four layers:
+Workerflow has six layers:
 
 1. Desktop shell: menu bar app, push-to-talk hotkey, recording pill, notifications.
 2. Voice pipeline: transcription, cleanup, intent classification, action confirmation.
-3. Context builder: git status, branch, diff summary, package metadata, repo config.
-4. Agent runner: Codex CLI, Claude Code, Aider, or a custom shell command in an isolated worktree.
+3. Intent router: direct action, guided Mac operator, coding-agent handoff, or clarification.
+4. Mac operator tool layer: Accessibility, ScreenCaptureKit, clipboard, Shortcuts, AppleScript, shell, and event actions behind policy.
+5. Context builder: git status, branch, diff summary, package metadata, repo config, optional screen/app context.
+6. Agent runner: Codex CLI, Claude Code, Aider, or a custom shell command in an isolated worktree.
+
+See [docs/mac-operator-mode.md](docs/mac-operator-mode.md).
 
 ## Safety Defaults
 
@@ -67,6 +73,7 @@ Workerflow should be useful without being reckless:
 - never auto-merge
 - never deploy without approval
 - never spend money
+- never submit forms, send messages, book reservations, or delete files without approval
 - never edit `.env`
 - use worktrees for code-changing jobs
 - show a diff before applying results
@@ -82,6 +89,7 @@ The short version:
 - v0.3: Electron tray app and hotkey overlay
 - v0.4: transcription and task classification
 - v0.5: diff viewer, notifications, demo-ready flow
+- v0.6+: Mac operator mode, desktop tools, realtime loop, and licensing
 
 See [docs/roadmap.md](docs/roadmap.md).
 

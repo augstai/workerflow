@@ -23,4 +23,22 @@ final class WorkerflowBridgeTests: XCTestCase {
         XCTAssertEqual(status.agent, "codex")
         XCTAssertEqual(status.transcription, "azure-openai")
     }
+
+    func testParsesRunMetadataWithNeedsAttentionStatus() {
+        let metadata = WorkerflowBridge.parseRunMetadata("""
+        Job: job_123
+        Status: needs-attention
+        Agent: codex
+        Workspace: /tmp/worktree
+        Summary: tests failed
+        Artifacts: /tmp/artifacts
+        """)
+
+        XCTAssertEqual(metadata.jobId, "job_123")
+        XCTAssertEqual(metadata.status, "needs-attention")
+        XCTAssertTrue(metadata.needsAttention)
+        XCTAssertFalse(metadata.isReady)
+        XCTAssertEqual(metadata.workspace, "/tmp/worktree")
+        XCTAssertEqual(metadata.artifacts, "/tmp/artifacts")
+    }
 }

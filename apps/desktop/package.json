@@ -9,6 +9,8 @@
     "build": "vite build --config vite.config.mjs",
     "dev": "node scripts/dev.mjs",
     "start": "pnpm build && electron src/main.mjs",
+    "test": "node --test test/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=renderer/src/app-logic.js --test-coverage-lines=95 test/*.test.js",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

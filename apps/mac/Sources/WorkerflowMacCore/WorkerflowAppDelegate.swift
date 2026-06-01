@@ -7,6 +7,7 @@ public final class WorkerflowAppDelegate: NSObject, NSApplicationDelegate {
 
     private let companionManager = WorkerflowCompanionManager()
     private var menuBarPanelManager: MenuBarPanelManager?
+    private var uiGalleryWindowManager: WorkerflowUIGalleryWindowManager?
 
     public override init() {
         super.init()
@@ -14,6 +15,15 @@ public final class WorkerflowAppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.info("launch pid=\(ProcessInfo.processInfo.processIdentifier)", category: "lifecycle")
+
+        if isUIGalleryMode {
+            AppLog.info("launch ui gallery", category: "lifecycle")
+            NSApp.setActivationPolicy(.regular)
+            uiGalleryWindowManager = WorkerflowUIGalleryWindowManager()
+            uiGalleryWindowManager?.show()
+            return
+        }
+
         NSApp.setActivationPolicy(.accessory)
         UserDefaults.standard.register(defaults: [
             "NSInitialToolTipDelay": 0
@@ -37,5 +47,9 @@ public final class WorkerflowAppDelegate: NSObject, NSApplicationDelegate {
         ProcessInfo.processInfo.environment["WORKERFLOW_SHOW_PANEL_ON_LAUNCH"] == "1"
             || !UserDefaults.standard.bool(forKey: Self.didShowFirstLaunchPanelKey)
             || !companionManager.allRequiredPermissionsGranted
+    }
+
+    private var isUIGalleryMode: Bool {
+        ProcessInfo.processInfo.environment["WORKERFLOW_UI_GALLERY"] == "1"
     }
 }

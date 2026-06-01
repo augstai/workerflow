@@ -13,6 +13,6 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Workerflow uses the microphone only while push-to-talk capture is active.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Workerflow may use screen recording for optional coding-agent context.</string>
+	<string>Workerflow uses screen recording to capture coding context for agent jobs when you approve it.</string>
 </dict>
 </plist>

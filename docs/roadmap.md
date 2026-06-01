@@ -52,6 +52,36 @@
 - install docs
 - native debug logs and redacted diagnostics bundles
 
+## v0.6: Mac Operator Foundation
+
+- product router for direct action vs guided operator vs coding-agent handoff
+- mockable `MacAutomationService` interface
+- read-only active app/window context
+- read-only Accessibility tree extraction
+- selected text and clipboard tools
+- safe `open_app`, focus window, and clipboard replacement actions
+- approval model for desktop-control tools
+- native gallery states for direct action, guided operator, and approval loops
+
+## v0.7: Guided Operator Mode
+
+- ScreenCaptureKit context in operator loop
+- generic desktop and shell inspection tools that let agents propose cleanup candidates with review-before-delete
+- questionnaire-fill workflow with draft-before-submit
+- browser/research workflow with explicit booking/sending approvals
+- AppleScript and Shortcuts adapters behind policy
+- coordinate click fallback only when Accessibility cannot act
+- signed-app TCC checklist for Screen Recording, Accessibility, Automation, and Input Monitoring
+
+## v0.8: Realtime + Commercial Beta
+
+- optional realtime provider behind explicit config
+- low-latency voice loop with tool-call events
+- local event stream from operator/agent runner into native UI
+- free trial/licensing hooks
+- pricing experiment: monthly, annual, lifetime
+- hosted proxy only for configured paid/realtime features
+
 ## Later
 
 - mouse-following screen context overlay

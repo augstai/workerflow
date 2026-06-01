@@ -28,4 +28,17 @@ final class PermissionCenterTests: XCTestCase {
 
         XCTAssertTrue(shouldProceed)
     }
+
+    func testVoicePermissionsDoNotRequireScreenContext() {
+        let snapshot = WorkerflowPermissionSnapshot(
+            hasAccessibilityPermission: true,
+            hasMicrophonePermission: true,
+            hasScreenRecordingPermission: true,
+            hasScreenContentPermission: false
+        )
+
+        XCTAssertTrue(snapshot.canCaptureVoice)
+        XCTAssertTrue(snapshot.allRequiredPermissionsGranted)
+        XCTAssertFalse(snapshot.canUseScreenContext)
+    }
 }

@@ -16,7 +16,14 @@ export {
   workerflowLogDir
 } from "./diagnostics.js";
 export { environmentFiles, loadEnvironment, parseEnvFile, workerflowEnvPath } from "./env.js";
-export { createJob, getJob, jobArtifactsDir, listJobs, updateJob, workerflowHome } from "./jobs.js";
+export { applyJobPatch, createJob, getJob, jobArtifactsDir, listJobs, rejectJob, updateJob, workerflowHome } from "./jobs.js";
+export {
+  assessMacOperatorToolCall,
+  containsRiskyText,
+  getMacOperatorTool,
+  listMacOperatorTools,
+  MAC_OPERATOR_TOOLS
+} from "./mac-automation.js";
 export { buildAgentPrompt } from "./prompt.js";
 export { runWorkerflowJob } from "./runner.js";
 export { DEFAULT_SAFETY_RULES, formatSafetyRules, requiresApproval } from "./safety.js";

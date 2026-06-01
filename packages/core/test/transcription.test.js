@@ -103,6 +103,113 @@ test("provider transcription rejects prompt echo on empty audio", async () => {
   }
 });
 
+test("openai-compatible transcription handles mocked success and errors", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workerflow-transcribe-"));
+  const filePath = path.join(dir, "sample.webm");
+  fs.writeFileSync(filePath, "mock");
+
+  try {
+    globalThis.fetch = async () => Response.json({ text: "fix the tests" });
+    const success = await transcribeAudioFile({
+      filePath,
+      config: {
+        ...DEFAULT_CONFIG,
+        transcription: {
+          ...DEFAULT_CONFIG.transcription,
+          provider: "openai-compatible",
+          baseUrl: "https://example.test/v1"
+        }
+      }
+    });
+    assert.equal(success.cleaned, "Fix the tests");
+
+    globalThis.fetch = async () => Response.json({ error: { message: "bad audio" } }, { status: 400 });
+    await assert.rejects(
+      transcribeAudioFile({
+        filePath,
+        config: {
+          ...DEFAULT_CONFIG,
+          transcription: {
+            ...DEFAULT_CONFIG.transcription,
+            provider: "openai-compatible",
+            baseUrl: "https://example.test/v1"
+          }
+        }
+      }),
+      /bad audio/
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("OPENAI_API_KEY", previousKey);
+  }
+});
+
+test("azure transcription handles mocked success and errors", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.AZURE_OPENAI_API_KEY;
+  process.env.AZURE_OPENAI_API_KEY = "test-key";
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workerflow-transcribe-"));
+  const filePath = path.join(dir, "sample.wav");
+  fs.writeFileSync(filePath, "mock");
+
+  const config = {
+    ...DEFAULT_CONFIG,
+    transcription: {
+      ...DEFAULT_CONFIG.transcription,
+      provider: "azure-openai",
+      azureEndpoint: "https://example.openai.azure.com",
+      azureDeployment: "voice-deploy"
+    }
+  };
+
+  try {
+    globalThis.fetch = async () => Response.json({ text: "ship the fix" });
+    const success = await transcribeAudioFile({ filePath, config });
+    assert.equal(success.cleaned, "Ship the fix");
+
+    globalThis.fetch = async () => Response.json({ error: { message: "azure rejected it" } }, { status: 429 });
+    await assert.rejects(transcribeAudioFile({ filePath, config }), /azure rejected it/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("AZURE_OPENAI_API_KEY", previousKey);
+  }
+});
+
+test("elevenlabs transcription handles mocked success and errors", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.ELEVENLABS_API_KEY;
+  process.env.ELEVENLABS_API_KEY = "test-key";
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workerflow-transcribe-"));
+  const filePath = path.join(dir, "sample.mp3");
+  fs.writeFileSync(filePath, "mock");
+
+  const config = {
+    ...DEFAULT_CONFIG,
+    transcription: {
+      ...DEFAULT_CONFIG.transcription,
+      provider: "elevenlabs"
+    }
+  };
+
+  try {
+    globalThis.fetch = async () => Response.json({ text: "write a test" });
+    const success = await transcribeAudioFile({ filePath, config });
+    assert.equal(success.cleaned, "Write a test");
+
+    globalThis.fetch = async () => Response.json({ detail: { message: "quota exceeded" } }, { status: 402 });
+    await assert.rejects(transcribeAudioFile({ filePath, config }), /quota exceeded/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("ELEVENLABS_API_KEY", previousKey);
+  }
+});
+
 function restoreEnv(key, value) {
   if (value === undefined) {
     delete process.env[key];

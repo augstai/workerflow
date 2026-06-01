@@ -1,13 +1,24 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowRight, Check, ChevronDown, CircleStop, Folder, GitBranch, Mic, Settings2, Sparkles, Terminal, Zap } from "lucide-react";
-import { VoiceButton, type VoiceButtonState } from "./components/elevenlabs-ui/voice-button";
+import { VoiceButton } from "./components/elevenlabs-ui/voice-button";
 import { Button } from "./components/elevenlabs-ui/button";
+import {
+  canRunTask,
+  formatAgent,
+  providerLabel,
+  repoName,
+  statusLabel,
+  statusSubtitle,
+  statusToView,
+  viewStatusToVoiceButtonState,
+  voiceActionLabel,
+  type ViewStatus
+} from "./app-logic.js";
 import { cn } from "./lib/utils";
 import type { RepoContext, TaskPayload, WorkerflowBridge, WorkerflowJob, WorkerflowSettings } from "./types/workerflow";
 import "./styles.css";
 
-type ViewStatus = "ready" | "listening" | "transcribing" | "review" | "running" | "failed";
 type CaptureMode = "task" | "test";
 
 const initialSettings: WorkerflowSettings = {
@@ -208,7 +219,7 @@ function App() {
   }
 
   const voiceState = viewStatusToVoiceButtonState(status);
-  const canRun = Boolean((confirmation?.task || task).trim()) && confirmation?.mode !== "dictation";
+  const canRun = canRunTask(confirmation, task);
   const currentRepoName = repoName(context, settings);
   const sheetOpen = settingsOpen || Boolean(task.trim()) || Boolean(transcript) || Boolean(message) || Boolean(confirmation) || Boolean(job);
 
@@ -455,70 +466,6 @@ function SettingsPanel({
 function preferredMimeType() {
   const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
   return types.find((type) => window.MediaRecorder?.isTypeSupported(type)) ?? "";
-}
-
-function viewStatusToVoiceButtonState(status: ViewStatus): VoiceButtonState {
-  if (status === "listening") return "recording";
-  if (status === "transcribing" || status === "running") return "processing";
-  if (status === "failed") return "error";
-  return "idle";
-}
-
-function statusToView(value: string): ViewStatus {
-  if (value === "listening") return "listening";
-  if (value === "transcribing") return "transcribing";
-  if (value === "review") return "review";
-  if (["running", "preparing", "queued", "verifying"].includes(value)) return "running";
-  if (["failed", "needs-attention"].includes(value)) return "failed";
-  return "ready";
-}
-
-function statusLabel(status: ViewStatus) {
-  const labels: Record<ViewStatus, string> = {
-    ready: "Ready",
-    listening: "Listening",
-    transcribing: "Transcribing",
-    review: "Review",
-    running: "Running",
-    failed: "Needs attention"
-  };
-  return labels[status];
-}
-
-function statusSubtitle(status: ViewStatus, settings: WorkerflowSettings, repo: string) {
-  if (status === "listening") return `Recording for ${repo}`;
-  if (status === "transcribing") return `${providerLabel(settings.transcription.provider)} is transcribing`;
-  if (status === "running") return `${settings.agentLabel ?? formatAgent(settings.agent)} is working`;
-  if (status === "review") return "Approval needed";
-  if (status === "failed") return "Check voice or provider settings";
-  return `${settings.agentLabel ?? formatAgent(settings.agent)} -> ${repo}`;
-}
-
-function voiceActionLabel(status: ViewStatus) {
-  if (status === "listening") return "Stop recording";
-  if (status === "transcribing") return "Transcribing";
-  if (status === "running") return "Running";
-  if (status === "failed") return "Try again";
-  return "Speak task";
-}
-
-function providerLabel(value?: string) {
-  const labels: Record<string, string> = {
-    "azure-openai": "Azure",
-    elevenlabs: "ElevenLabs",
-    mock: "Mock",
-    openai: "OpenAI",
-    "openai-compatible": "Compatible"
-  };
-  return labels[value ?? "mock"] ?? value ?? "Mock";
-}
-
-function repoName(context: RepoContext, settings: WorkerflowSettings) {
-  return context.repoRoot?.split("/").filter(Boolean).at(-1) ?? settings.activeRepo?.split("/").filter(Boolean).at(-1) ?? "repo";
-}
-
-function formatAgent(value: string) {
-  return value === "claude" ? "Claude" : "Codex";
 }
 
 function createPreviewBridge(): WorkerflowBridge {

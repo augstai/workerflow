@@ -6,7 +6,7 @@ let package = Package(
     name: "WorkerflowMac",
     defaultLocalization: "en",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .executable(name: "WorkerflowMac", targets: ["WorkerflowMac"])

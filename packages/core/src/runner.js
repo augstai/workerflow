@@ -8,18 +8,34 @@ import { createJob, updateJob } from "./jobs.js";
 import { buildAgentPrompt } from "./prompt.js";
 import { captureDiff, createWorktree } from "./worktree.js";
 
-export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onStatus }) {
+export async function runWorkerflowJob({
+  task,
+  cwd,
+  agent,
+  dryRun = false,
+  screenContextDir,
+  onStatus,
+  dependencies = {}
+}) {
+  const {
+    commandRunner = runCommand,
+    shellCommandRunner = runShellCommand,
+    createWorktreeFn = createWorktree,
+    captureDiffFn = captureDiff
+  } = dependencies;
   const { config: projectConfig } = readProjectConfig(cwd);
   const config = projectConfig ?? DEFAULT_CONFIG;
   const selectedAgent = normalizeAgent(agent ?? config.agent);
   const context = captureRepoContext(cwd);
+  const screenContext = loadScreenContext(screenContextDir);
   const prompt = buildAgentPrompt({
     task,
     config: {
       ...config,
       agent: selectedAgent
     },
-    context
+    context,
+    screenContext
   });
 
   let job = createJob({
@@ -31,6 +47,9 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onSta
   });
 
   writeArtifact(job, "prompt.md", prompt);
+  if (screenContextDir) {
+    copyScreenContextArtifacts(job, screenContextDir);
+  }
   onStatus?.({
     status: "queued",
     message: "Job queued",
@@ -53,7 +72,7 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onSta
       job
     });
     const workspace = config.worktree
-      ? createWorktree({ repoRoot: context.repoRoot, jobId: job.id })
+      ? createWorktreeFn({ repoRoot: context.repoRoot, jobId: job.id })
       : { path: context.repoRoot, branch: context.branch };
 
     job = updateJob(job.id, {
@@ -76,7 +95,7 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onSta
     });
     const adapterConfig = config.adapters?.[selectedAgent] ?? {};
 
-    const agentResult = await runCommand({
+    const agentResult = await commandRunner({
       command: invocation.command,
       args: invocation.args,
       cwd: workspace.path,
@@ -91,10 +110,10 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onSta
       message: "Running verification",
       job
     });
-    const verification = await runVerificationCommands(config, workspace.path);
+    const verification = await runVerificationCommands(config, workspace.path, shellCommandRunner);
     writeArtifact(job, "verification.json", JSON.stringify(verification, null, 2));
 
-    const diff = captureDiff(workspace.path);
+    const diff = captureDiffFn(workspace.path);
     writeArtifact(job, "diff.patch", diff.patch);
     writeArtifact(job, "diff-stat.txt", diff.stat);
 
@@ -132,7 +151,33 @@ export async function runWorkerflowJob({ task, cwd, agent, dryRun = false, onSta
   }
 }
 
-async function runVerificationCommands(config, workspaceDir) {
+function loadScreenContext(screenContextDir) {
+  if (!screenContextDir) {
+    return null;
+  }
+
+  const metadataPath = path.join(screenContextDir, "metadata.json");
+  if (!fs.existsSync(metadataPath)) {
+    throw new Error(`Missing screen context metadata: ${metadataPath}`);
+  }
+
+  return JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+}
+
+function copyScreenContextArtifacts(job, screenContextDir) {
+  const targetDir = path.join(job.artifactsDir, "screen-context");
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  for (const entry of fs.readdirSync(screenContextDir)) {
+    const sourcePath = path.join(screenContextDir, entry);
+    const targetPath = path.join(targetDir, entry);
+    if (fs.statSync(sourcePath).isFile()) {
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+}
+
+async function runVerificationCommands(config, workspaceDir, shellCommandRunner) {
   const commands = [
     ["test", config.commands?.test],
     ["build", config.commands?.build],
@@ -141,7 +186,7 @@ async function runVerificationCommands(config, workspaceDir) {
 
   const results = [];
   for (const [name, command] of commands) {
-    const result = await runShellCommand({ command, cwd: workspaceDir });
+    const result = await shellCommandRunner({ command, cwd: workspaceDir });
     results.push({
       name,
       command,

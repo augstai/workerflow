@@ -28,12 +28,50 @@ export function createWorktree({ repoRoot, jobId }) {
 }
 
 export function captureDiff(workspaceDir) {
+  const trackedPatch = gitText(["diff", "--binary", "HEAD"], workspaceDir);
+  const trackedStat = gitText(["diff", "--stat", "HEAD"], workspaceDir);
+  const trackedNames = splitLines(gitText(["diff", "--name-only", "HEAD"], workspaceDir));
+  const untrackedFiles = listUntrackedFiles(workspaceDir);
+  const untrackedDiffs = untrackedFiles.map((file) => diffUntrackedFile(workspaceDir, file));
+  const patches = [trackedPatch, ...untrackedDiffs.map((diff) => diff.patch)].filter(Boolean);
+  const stats = [trackedStat, ...untrackedDiffs.map((diff) => diff.stat)].filter(Boolean);
+
   return {
-    stat: gitText(["diff", "--stat"], workspaceDir),
-    nameOnly: gitText(["diff", "--name-only"], workspaceDir)
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
-    patch: gitText(["diff", "--binary"], workspaceDir)
+    stat: stats.join("\n"),
+    nameOnly: unique([...trackedNames, ...untrackedFiles]),
+    patch: patches.join("\n")
   };
+}
+
+function listUntrackedFiles(workspaceDir) {
+  return gitText(["ls-files", "--others", "--exclude-standard", "-z"], workspaceDir)
+    .split("\0")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function diffUntrackedFile(workspaceDir, file) {
+  return {
+    patch: gitDiffNoIndex(["diff", "--binary", "--no-index", "--", "/dev/null", file], workspaceDir),
+    stat: gitDiffNoIndex(["diff", "--stat", "--no-index", "--", "/dev/null", file], workspaceDir)
+  };
+}
+
+function gitDiffNoIndex(args, cwd) {
+  const result = git(args, cwd);
+  if (result.status === 0 || result.status === 1) {
+    return result.stdout;
+  }
+  return "";
+}
+
+function splitLines(value) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function unique(values) {
+  return [...new Set(values)];
 }

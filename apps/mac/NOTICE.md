@@ -12,3 +12,5 @@ Clicky is MIT licensed.
 Copyright (c) 2026 Farza
 
 Workerflow does not include Clicky's service endpoints, analytics setup, private deployment configuration, onboarding media, or product-specific assets.
+
+The native voice visualizer and voice-action button are Workerflow-native SwiftUI adaptations of public ElevenLabs UI component patterns for bar visualizers and voice buttons. No React source files are bundled in the native app.

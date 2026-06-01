@@ -9,11 +9,77 @@ enum PermissionRequestDestination: Equatable {
     case systemSettings
 }
 
+struct WorkerflowPermissionSnapshot: Equatable {
+    var hasAccessibilityPermission: Bool
+    var hasMicrophonePermission: Bool
+    var hasScreenRecordingPermission: Bool
+    var hasScreenContentPermission: Bool
+
+    var allRequiredPermissionsGranted: Bool {
+        canCaptureVoice
+    }
+
+    var canCaptureVoice: Bool {
+        hasAccessibilityPermission && hasMicrophonePermission
+    }
+
+    var canUseScreenContext: Bool {
+        hasScreenRecordingPermission && hasScreenContentPermission
+    }
+}
+
+@MainActor
+protocol PermissionProvider {
+    func currentSnapshot() -> WorkerflowPermissionSnapshot
+    func requestAccessibilityPermission() -> PermissionRequestDestination
+    func requestScreenRecordingPermission() -> PermissionRequestDestination
+    func requestMicrophonePermission() async -> Bool
+    func setScreenContentPermission(_ granted: Bool)
+    func revealAppInFinder()
+}
+
+@MainActor
+struct SystemPermissionProvider: PermissionProvider {
+    func currentSnapshot() -> WorkerflowPermissionSnapshot {
+        PermissionCenter.currentSnapshot()
+    }
+
+    func requestAccessibilityPermission() -> PermissionRequestDestination {
+        PermissionCenter.requestAccessibilityPermission()
+    }
+
+    func requestScreenRecordingPermission() -> PermissionRequestDestination {
+        PermissionCenter.requestScreenRecordingPermission()
+    }
+
+    func requestMicrophonePermission() async -> Bool {
+        await PermissionCenter.requestMicrophonePermission()
+    }
+
+    func setScreenContentPermission(_ granted: Bool) {
+        PermissionCenter.setScreenContentPermission(granted)
+    }
+
+    func revealAppInFinder() {
+        PermissionCenter.revealAppInFinder()
+    }
+}
+
 @MainActor
 enum PermissionCenter {
     private static var attemptedAccessibilityPrompt = false
     private static var attemptedScreenRecordingPrompt = false
     private static let knownScreenRecordingKey = "dev.workerflow.mac.knownScreenRecordingPermission"
+    private static let knownScreenContentKey = "dev.workerflow.mac.knownScreenContentPermission"
+
+    static func currentSnapshot() -> WorkerflowPermissionSnapshot {
+        WorkerflowPermissionSnapshot(
+            hasAccessibilityPermission: hasAccessibilityPermission(),
+            hasMicrophonePermission: hasMicrophonePermission(),
+            hasScreenRecordingPermission: hasScreenRecordingPermission(),
+            hasScreenContentPermission: hasScreenContentPermission()
+        )
+    }
 
     static func hasAccessibilityPermission() -> Bool {
         AXIsProcessTrusted()
@@ -98,6 +164,14 @@ enum PermissionCenter {
 
     static func openScreenRecordingSettings() {
         openSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+    }
+
+    static func hasScreenContentPermission() -> Bool {
+        UserDefaults.standard.bool(forKey: knownScreenContentKey)
+    }
+
+    static func setScreenContentPermission(_ granted: Bool) {
+        UserDefaults.standard.set(granted, forKey: knownScreenContentKey)
     }
 
     static func hasMicrophonePermission() -> Bool {

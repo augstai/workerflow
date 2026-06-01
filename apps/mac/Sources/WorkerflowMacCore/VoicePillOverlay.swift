@@ -2,7 +2,13 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class VoicePillOverlayManager {
+protocol VoicePillOverlayManaging: AnyObject {
+    func show(manager: WorkerflowCompanionManager)
+    func hide()
+}
+
+@MainActor
+final class VoicePillOverlayManager: VoicePillOverlayManaging {
     private var panel: NSPanel?
 
     func show(manager: WorkerflowCompanionManager) {
@@ -25,7 +31,7 @@ final class VoicePillOverlayManager {
     private func createPanelIfNeeded(manager: WorkerflowCompanionManager) {
         if panel != nil { return }
 
-        let size = NSSize(width: 318, height: 58)
+        let size = NSSize(width: 360, height: 64)
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -51,29 +57,51 @@ final class VoicePillOverlayManager {
     private func positionPanel() {
         guard let panel else { return }
 
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main ?? NSScreen.screens.first
+        let screen = NSScreen.main ?? NSScreen.screens.first
         guard let screen else { return }
 
-        let size = panel.frame.size
-        let safeTopInset = screen.safeAreaInsets.top
-        let topPadding: CGFloat = safeTopInset > 0 ? safeTopInset + 10 : 18
-        let x = screen.frame.midX - size.width / 2
-        let y = screen.frame.maxY - topPadding - size.height
-
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        panel.setFrameOrigin(
+            VoicePillPlacement.topCenter(
+                panelSize: panel.frame.size,
+                screenFrame: screen.frame,
+                visibleFrame: screen.visibleFrame,
+                safeTopInset: screen.safeAreaInsets.top
+            )
+        )
     }
 }
 
-struct VoicePillView: View {
-    @ObservedObject var companionManager: WorkerflowCompanionManager
+enum VoicePillPlacement {
+    static func topCenter(
+        panelSize: NSSize,
+        screenFrame: NSRect,
+        visibleFrame: NSRect,
+        safeTopInset: CGFloat
+    ) -> NSPoint {
+        let edgePadding: CGFloat = 12
+        let topPadding: CGFloat = safeTopInset > 0 ? safeTopInset + 12 : 18
+        let unclampedX = visibleFrame.midX - panelSize.width / 2
+        let x = min(
+            max(unclampedX, visibleFrame.minX + edgePadding),
+            visibleFrame.maxX - panelSize.width - edgePadding
+        )
+        let y = max(
+            visibleFrame.minY + edgePadding,
+            screenFrame.maxY - topPadding - panelSize.height
+        )
+        return NSPoint(x: x, y: y)
+    }
+}
+
+struct VoicePillView<Companion: WorkerflowCompanionModel>: View {
+    @ObservedObject var companionManager: Companion
 
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(statusColor.opacity(0.16))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 36, height: 36)
                 Image(systemName: statusIcon)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(statusColor)
@@ -93,10 +121,18 @@ struct VoicePillView: View {
 
             Spacer(minLength: 6)
 
-            waveform
+            WorkerflowBarVisualizer(
+                state: WorkerflowVisualizerState.fromVoiceState(companionManager.voiceState),
+                levels: companionManager.audioPowerHistory,
+                barCount: 17,
+                minHeight: 0.15,
+                centerAlign: true,
+                tint: statusColor
+            )
+            .frame(width: 104, height: 36)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
         .background(
             ZStack {
                 VisualEffectBackground(material: .hudWindow)
@@ -112,41 +148,40 @@ struct VoicePillView: View {
         .shadow(color: Color.black.opacity(0.34), radius: 22, x: 0, y: 10)
     }
 
-    private var waveform: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(companionManager.audioPowerHistory.suffix(18).enumerated()), id: \.offset) { _, level in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(statusColor.opacity(0.4 + Double(min(level, 1)) * 0.6))
-                    .frame(width: 3, height: 7 + max(0.04, level) * 24)
-            }
-        }
-        .frame(width: 90, height: 34)
-    }
-
     private var statusColor: Color {
         switch companionManager.voiceState {
-        case .failed:
+        case .failed, .needsAttention:
             return WFDesign.Colors.danger
+        case .needsApproval:
+            return WFDesign.Colors.warning
         case .succeeded:
             return WFDesign.Colors.success
         case .idle, .review:
             return WFDesign.Colors.success
-        case .listening, .transcribing, .running:
+        case .preparing, .listening, .transcribing, .thinking, .handoff, .running:
             return WFDesign.Colors.accent
         }
     }
 
     private var statusIcon: String {
         switch companionManager.voiceState {
+        case .preparing:
+            return "waveform"
         case .listening:
             return "mic.fill"
         case .transcribing:
             return "waveform"
+        case .thinking:
+            return "sparkles"
+        case .handoff:
+            return "paperplane.fill"
         case .running:
             return "terminal.fill"
+        case .needsApproval:
+            return "hand.raised.fill"
         case .succeeded:
             return "checkmark"
-        case .failed:
+        case .needsAttention, .failed:
             return "exclamationmark"
         case .idle, .review:
             return "sparkle"
@@ -154,10 +189,28 @@ struct VoicePillView: View {
     }
 
     private var subtitle: String {
-        if companionManager.voiceState == .review {
+        let trimmedTranscript = companionManager.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedTranscript.isEmpty,
+           companionManager.voiceState == .review
+            || companionManager.voiceState == .thinking
+            || companionManager.voiceState == .handoff
+            || companionManager.voiceState == .running {
+            return trimmedTranscript
+        }
+        if companionManager.voiceState == .review || companionManager.voiceState == .handoff {
             return companionManager.selectedAgent
         }
-        if companionManager.voiceState == .failed || companionManager.voiceState == .succeeded {
+        if companionManager.voiceState == .failed
+            || companionManager.voiceState == .needsAttention
+            || companionManager.voiceState == .needsApproval
+            || companionManager.voiceState == .succeeded {
+            return companionManager.message
+        }
+        if companionManager.voiceState == .listening {
+            return companionManager.message
+        }
+        if companionManager.voiceState == .idle,
+           companionManager.message != "Ready." {
             return companionManager.message
         }
         return companionManager.shortcutText

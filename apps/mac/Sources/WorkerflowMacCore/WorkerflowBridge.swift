@@ -10,6 +10,27 @@ struct WorkerflowCommandResult: Equatable {
     }
 }
 
+struct WorkerflowRunMetadata: Equatable {
+    var jobId = ""
+    var status = ""
+    var agent = ""
+    var workspace = ""
+    var summary = ""
+    var artifacts = ""
+
+    var isReady: Bool {
+        status == "ready" || status == "dry-run" || status == "applied"
+    }
+
+    var needsAttention: Bool {
+        status == "needs-attention"
+    }
+
+    var isFailed: Bool {
+        status == "failed"
+    }
+}
+
 struct WorkerflowStatus: Equatable {
     var configPath: String = "not attached"
     var repo: String = ""
@@ -19,7 +40,18 @@ struct WorkerflowStatus: Equatable {
     var changedFiles: String = "0"
 }
 
-final class WorkerflowBridge {
+protocol WorkerflowBridgeProtocol {
+    var repoRoot: URL { get }
+
+    func status() async -> WorkerflowStatus
+    func transcribe(audioFileURL: URL) async throws -> String
+    func run(task: String, agent: String, screenContextDirectory: URL?) async throws -> WorkerflowCommandResult
+    func applyJob(id: String) async throws -> WorkerflowCommandResult
+    func rejectJob(id: String) async throws -> WorkerflowCommandResult
+    func createDiagnosticsBundle() async throws -> String
+}
+
+final class WorkerflowBridge: WorkerflowBridgeProtocol {
     let repoRoot: URL
 
     init(repoRoot: URL = WorkerflowBridge.resolveRepoRoot()) {
@@ -52,10 +84,31 @@ final class WorkerflowBridge {
         return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func run(task: String, agent: String) async throws -> WorkerflowCommandResult {
+    func run(task: String, agent: String, screenContextDirectory: URL? = nil) async throws -> WorkerflowCommandResult {
         AppLog.info("run request agent=\(agent) taskLength=\(task.count)", category: "bridge")
-        let result = try await runWorkerflow(arguments: ["run", "--agent", agent, task], timeout: 1_800)
+        var arguments = ["run", "--agent", agent]
+        if let screenContextDirectory {
+            arguments.append(contentsOf: ["--screen-context", screenContextDirectory.path])
+        }
+        arguments.append(task)
+        let result = try await runWorkerflow(arguments: arguments, timeout: 1_800)
         if result.exitCode != 0 {
+            throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
+        }
+        return result
+    }
+
+    func applyJob(id: String) async throws -> WorkerflowCommandResult {
+        let result = try await runWorkerflow(arguments: ["job", "apply", id], timeout: 120)
+        guard result.exitCode == 0 else {
+            throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
+        }
+        return result
+    }
+
+    func rejectJob(id: String) async throws -> WorkerflowCommandResult {
+        let result = try await runWorkerflow(arguments: ["job", "reject", id], timeout: 60)
+        guard result.exitCode == 0 else {
             throw WorkerflowBridgeError.commandFailed(result.combinedOutput)
         }
         return result
@@ -134,6 +187,34 @@ final class WorkerflowBridge {
         }
 
         return status
+    }
+
+    static func parseRunMetadata(_ output: String) -> WorkerflowRunMetadata {
+        var metadata = WorkerflowRunMetadata()
+
+        for line in output.split(separator: "\n") {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            guard parts.count == 2 else { continue }
+
+            switch parts[0] {
+            case "Job":
+                metadata.jobId = parts[1]
+            case "Status":
+                metadata.status = parts[1]
+            case "Agent":
+                metadata.agent = parts[1]
+            case "Workspace":
+                metadata.workspace = parts[1]
+            case "Summary":
+                metadata.summary = parts[1]
+            case "Artifacts":
+                metadata.artifacts = parts[1]
+            default:
+                continue
+            }
+        }
+
+        return metadata
     }
 
     static func resolveRepoRoot(startingAt startPath: String = FileManager.default.currentDirectoryPath) -> URL {

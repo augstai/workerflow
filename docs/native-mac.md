@@ -48,10 +48,10 @@ The native shell writes persistent logs even when the terminal is not useful:
 ~/Library/Logs/Workerflow/workerflow-mac.log
 ```
 
-The menu-bar panel has two diagnostic buttons:
+The menu-bar panel has a small support menu:
 
-- `Logs`: reveals the native Mac log in Finder.
-- `Bundle`: creates a redacted diagnostics bundle through `workerflow debug --bundle`.
+- `Open Log File`: reveals the native Mac log in Finder.
+- `Create Support Report`: creates a redacted diagnostics bundle through `workerflow debug --bundle`.
 
 CLI diagnostics:
 

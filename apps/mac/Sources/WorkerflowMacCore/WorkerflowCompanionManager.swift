@@ -326,7 +326,7 @@ final class WorkerflowCompanionManager: ObservableObject {
     }
 
     func createDiagnosticsBundle() {
-        message = "Creating diagnostics bundle."
+        message = "Creating support report."
         commandOutput = ""
         voiceState = .running
         AppLog.info("create diagnostics bundle", category: "manager")
@@ -334,13 +334,13 @@ final class WorkerflowCompanionManager: ObservableObject {
         Task {
             do {
                 let bundlePath = try await bridge.createDiagnosticsBundle()
-                commandOutput = "Diagnostics bundle:\n\(bundlePath)"
-                message = "Diagnostics bundle created."
+                commandOutput = "Support report:\n\(bundlePath)"
+                message = "Support report created."
                 voiceState = .succeeded
                 AppLog.info("diagnostics bundle created path=\(bundlePath)", category: "manager")
             } catch {
                 commandOutput = error.localizedDescription
-                message = "Diagnostics bundle failed."
+                message = "Support report failed."
                 voiceState = .failed
                 AppLog.error("diagnostics bundle failed error=\(error.localizedDescription)", category: "manager")
             }

@@ -38,10 +38,6 @@ struct WorkerflowPanelView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
 
-            diagnosticsSection
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
             footer
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -72,6 +68,8 @@ struct WorkerflowPanelView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(WFDesign.Colors.textMuted)
 
+            supportMenu
+
             Button {
                 NotificationCenter.default.post(name: .workerflowDismissPanel, object: nil)
             } label: {
@@ -85,6 +83,29 @@ struct WorkerflowPanelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+
+    private var supportMenu: some View {
+        Menu {
+            Button {
+                companionManager.openLogs()
+            } label: {
+                Label("Open Log File", systemImage: "doc.text.magnifyingglass")
+            }
+
+            Button {
+                companionManager.createDiagnosticsBundle()
+            } label: {
+                Label("Create Support Report", systemImage: "shippingbox")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(WFDesign.Colors.textFaint)
+                .frame(width: 22, height: 22)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     private var readySection: some View {
@@ -287,26 +308,6 @@ struct WorkerflowPanelView: View {
                 .labelsHidden()
                 .frame(width: 172)
             }
-        }
-    }
-
-    private var diagnosticsSection: some View {
-        HStack(spacing: 8) {
-            Button {
-                companionManager.openLogs()
-            } label: {
-                Label("Logs", systemImage: "doc.text.magnifyingglass")
-            }
-            .buttonStyle(QuietButtonStyle())
-
-            Button {
-                companionManager.createDiagnosticsBundle()
-            } label: {
-                Label("Bundle", systemImage: "shippingbox")
-            }
-            .buttonStyle(QuietButtonStyle())
-
-            Spacer()
         }
     }
 
